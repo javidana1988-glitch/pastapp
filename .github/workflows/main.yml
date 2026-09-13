@@ -33,7 +33,7 @@ jobs:
         run: flutter pub get
 
       - name: Compilar PastApp Web
-        run: flutter build web --release
+        run: flutter build web --release --base-href /pastapp/
 
       - name: Configurar GitHub Pages
         uses: actions/configure-pages@v5
