@@ -1019,20 +1019,9 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   }
 
   Future<void> sincronizarConGoogle() async {
-    if (!_googleInicializado) {
-      await _inicializarGoogle();
-    }
+    await _asegurarGoogleDrive();
 
-    if (_googleDrive.usuario == null) {
-      await _googleDrive.iniciarSesion();
-    } else {
-      await _googleDrive.prepararSesionExistente();
-    }
-
-    if (_googleDrive.usuario == null) {
-      throw Exception('No se ha podido iniciar sesión con Google.');
-    }
-
+    if (!mounted) return;
     setState(() {
       _googleSincronizando = true;
     });
@@ -1055,21 +1044,48 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> restaurarDesdeGoogle() async {
+  Future<void> _asegurarGoogleDrive() async {
     if (!_googleInicializado) {
       await _inicializarGoogle();
     }
 
+    // En Web no se puede lanzar authenticate() directamente.
+    // Si no hay usuario, abrimos el flujo oficial con el botón de Google.
     if (_googleDrive.usuario == null) {
-      await _googleDrive.iniciarSesion();
-    } else {
-      await _googleDrive.prepararSesionExistente();
+      if (kIsWeb) {
+        await conectarGoogleDesdeAjustes();
+      } else {
+        await _googleDrive.iniciarSesion();
+      }
     }
 
-    if (_googleDrive.usuario == null) {
+    final usuario = _googleDrive.usuario;
+    if (usuario == null) {
       throw Exception('No se ha podido iniciar sesión con Google.');
     }
 
+    // Una sesión de Google no implica necesariamente que Drive esté
+    // autorizado. En ese caso pedimos el permiso de Drive aquí.
+    await _googleDrive.prepararSesionExistente();
+    if (!_googleDrive.tieneDriveAutorizado) {
+      final autorizacion =
+      await usuario.authorizationClient.authorizeScopes(
+        googleDriveScopes,
+      );
+      _googleDrive.crearDriveDesdeAutorizacion(autorizacion);
+    }
+
+    if (!_googleDrive.tieneDriveAutorizado) {
+      throw Exception(
+        'Google está conectado, pero no se ha autorizado el acceso a Drive.',
+      );
+    }
+  }
+
+  Future<void> restaurarDesdeGoogle() async {
+    await _asegurarGoogleDrive();
+
+    if (!mounted) return;
     setState(() {
       _googleSincronizando = true;
     });
