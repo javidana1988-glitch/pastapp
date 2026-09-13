@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "32193813079",
+    "project_id": "pastapp-edd9e",
+    "storage_bucket": "pastapp-edd9e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:32193813079:android:74d83c52cd048d89686112",
+        "android_client_info": {
+          "package_name": "com.example.mis_finanzas_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAUoWb9d_R5dk1XPHhpsmmc6KTxPpw38sA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
