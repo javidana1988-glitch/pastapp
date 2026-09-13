@@ -1019,38 +1019,148 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   }
 
   Future<void> sincronizarConGoogle() async {
-    await _asegurarGoogleDrive();
-
-    if (!mounted) return;
-    setState(() {
-      _googleSincronizando = true;
-    });
-
     try {
-      await _googleDrive.subirDatos(_datosParaSincronizar());
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Datos sincronizados con Google'),
+      await _asegurarGoogleDrive();
+      if (!mounted) return;
+      setState(() => _googleSincronizando = true);
+      try {
+        await _googleDrive.subirDatos(_datosParaSincronizar());
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Datos sincronizados con Google')),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _googleSincronizando = false);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No se ha podido sincronizar: ${e.toString().replaceFirst('Exception: ', '')}',
           ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _googleSincronizando = false;
-        });
-      }
+        ),
+      );
     }
   }
 
-  Future<void> _asegurarGoogleDrive() async {
-    if (!_googleInicializado) {
-      await _inicializarGoogle();
+  /// En Web authorizeScopes() abre un popup OAuth y el navegador exige que
+  /// la llamada nazca directamente de una acción del usuario.
+  Future<bool> _autorizarGoogleDrive() async {
+    final usuario = _googleDrive.usuario;
+    if (usuario == null) {
+      throw Exception('No se ha podido iniciar sesión con Google.');
     }
 
-    // En Web no se puede lanzar authenticate() directamente.
-    // Si no hay usuario, abrimos el flujo oficial con el botón de Google.
+    await _googleDrive.prepararSesionExistente();
+    if (_googleDrive.tieneDriveAutorizado) return true;
+
+    if (!kIsWeb) {
+      final autorizacion = await usuario.authorizationClient.authorizeScopes(
+        googleDriveScopes,
+      );
+      _googleDrive.crearDriveDesdeAutorizacion(autorizacion);
+      return _googleDrive.tieneDriveAutorizado;
+    }
+
+    final autorizado = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        bool procesando = false;
+        String? error;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Autorizar Google Drive'),
+              content: SizedBox(
+                width: 430,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'PastApp necesita permiso para guardar y recuperar tu copia de seguridad en Google Drive.',
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Tus datos se guardan en el espacio privado de la aplicación de tu Google Drive.',
+                    ),
+                    if (error != null) ...[
+                      const SizedBox(height: 14),
+                      Text(
+                        error!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: procesando
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton.icon(
+                  onPressed: procesando
+                      ? null
+                      : () async {
+                    setDialogState(() {
+                      procesando = true;
+                      error = null;
+                    });
+                    try {
+                      // Esta llamada está directamente dentro de
+                      // onPressed, por lo que el navegador permite el
+                      // popup de autorización de Google.
+                      final autorizacion = await usuario
+                          .authorizationClient
+                          .authorizeScopes(googleDriveScopes);
+                      _googleDrive.crearDriveDesdeAutorizacion(
+                        autorizacion,
+                      );
+                      if (context.mounted) {
+                        Navigator.of(dialogContext).pop(
+                          _googleDrive.tieneDriveAutorizado,
+                        );
+                      }
+                    } catch (e) {
+                      setDialogState(() {
+                        procesando = false;
+                        error = e
+                            .toString()
+                            .replaceFirst('Exception: ', '');
+                      });
+                    }
+                  },
+                  icon: procesando
+                      ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                      : const Icon(Icons.cloud_done_outlined),
+                  label: Text(
+                    procesando ? 'Autorizando...' : 'Autorizar Drive',
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    return autorizado == true && _googleDrive.tieneDriveAutorizado;
+  }
+
+  Future<void> _asegurarGoogleDrive() async {
+    if (!_googleInicializado) await _inicializarGoogle();
+
     if (_googleDrive.usuario == null) {
       if (kIsWeb) {
         await conectarGoogleDesdeAjustes();
@@ -1059,59 +1169,47 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       }
     }
 
-    final usuario = _googleDrive.usuario;
-    if (usuario == null) {
+    if (_googleDrive.usuario == null) {
       throw Exception('No se ha podido iniciar sesión con Google.');
     }
 
-    // Una sesión de Google no implica necesariamente que Drive esté
-    // autorizado. En ese caso pedimos el permiso de Drive aquí.
     await _googleDrive.prepararSesionExistente();
-    if (!_googleDrive.tieneDriveAutorizado) {
-      final autorizacion =
-      await usuario.authorizationClient.authorizeScopes(
-        googleDriveScopes,
-      );
-      _googleDrive.crearDriveDesdeAutorizacion(autorizacion);
-    }
+    if (_googleDrive.tieneDriveAutorizado) return;
 
-    if (!_googleDrive.tieneDriveAutorizado) {
-      throw Exception(
-        'Google está conectado, pero no se ha autorizado el acceso a Drive.',
-      );
+    final autorizado = await _autorizarGoogleDrive();
+    if (!autorizado || !_googleDrive.tieneDriveAutorizado) {
+      throw Exception('No se ha autorizado el acceso a Google Drive.');
     }
   }
 
   Future<void> restaurarDesdeGoogle() async {
-    await _asegurarGoogleDrive();
-
-    if (!mounted) return;
-    setState(() {
-      _googleSincronizando = true;
-    });
-
     try {
-      final datos = await _googleDrive.descargarDatos();
-
-      if (datos == null) {
-        throw Exception('No existe todavía una copia en Google Drive.');
+      await _asegurarGoogleDrive();
+      if (!mounted) return;
+      setState(() => _googleSincronizando = true);
+      try {
+        final datos = await _googleDrive.descargarDatos();
+        if (datos == null) {
+          throw Exception('No existe todavía una copia en Google Drive.');
+        }
+        await _aplicarDatosSincronizados(datos);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Datos restaurados desde Google')),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _googleSincronizando = false);
       }
-
-      await _aplicarDatosSincronizados(datos);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Datos restaurados desde Google'),
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No se ha podido restaurar: ${e.toString().replaceFirst('Exception: ', '')}',
           ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _googleSincronizando = false;
-        });
-      }
+        ),
+      );
     }
   }
 
@@ -1198,11 +1296,10 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     await generarRecurrentesPendientes();
   }
 
+
   Future<void> conectarGoogleDesdeAjustes() async {
     try {
-      if (!_googleInicializado) {
-        await _inicializarGoogle();
-      }
+      if (!_googleInicializado) await _inicializarGoogle();
 
       if (_googleDrive.usuario == null) {
         if (!_googleDriveSoportaAuthenticate()) {
@@ -1230,35 +1327,22 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
               );
             },
           );
-
           if (conectado != true) return;
-
-          final usuarioWeb = _googleDrive.usuario;
-          if (usuarioWeb == null) {
-            throw Exception('No se ha podido iniciar sesión con Google.');
-          }
-
-          await _googleDrive.prepararSesionExistente();
-
-          if (!_googleDrive.tieneDriveAutorizado) {
-            final autorizacion =
-            await usuarioWeb.authorizationClient.authorizeScopes(
-              googleDriveScopes,
-            );
-            _googleDrive.crearDriveDesdeAutorizacion(autorizacion);
-          }
         } else {
           await _googleDrive.iniciarSesion();
         }
-      } else {
-        await _googleDrive.prepararSesionExistente();
       }
 
       if (!mounted) return;
-
       final usuario = _googleDrive.usuario;
       if (usuario == null) {
         throw Exception('No se ha podido conectar la cuenta.');
+      }
+
+      await _googleDrive.prepararSesionExistente();
+      if (!_googleDrive.tieneDriveAutorizado) {
+        final autorizado = await _autorizarGoogleDrive();
+        if (!autorizado) return;
       }
 
       if (!_googleDrive.tieneDriveAutorizado) {
@@ -1267,12 +1351,9 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
         );
       }
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Google conectado: ${usuario.email}',
-          ),
-        ),
+        SnackBar(content: Text('Google conectado: ${usuario.email}')),
       );
       setState(() {});
     } catch (e) {
