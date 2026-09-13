@@ -246,6 +246,39 @@ DateTime convertirFecha(String texto) {
   }
 }
 
+DateTime fechaHoraMovimiento(Map<String, dynamic> movimiento) {
+  final fecha = convertirFecha(movimiento['fecha']?.toString() ?? '');
+  if (fecha.year == 1900) return fecha;
+
+  final horaTexto = movimiento['hora']?.toString() ?? '';
+  final partesHora = horaTexto.split(':');
+  final hora = partesHora.isNotEmpty ? int.tryParse(partesHora[0]) ?? 0 : 0;
+  final minuto = partesHora.length > 1 ? int.tryParse(partesHora[1]) ?? 0 : 0;
+
+  return DateTime(fecha.year, fecha.month, fecha.day, hora, minuto);
+}
+
+int compararMovimientosPorFechaHoraDesc(
+    Map<String, dynamic> a,
+    Map<String, dynamic> b,
+    ) {
+  final porFechaHora = fechaHoraMovimiento(b).compareTo(fechaHoraMovimiento(a));
+  if (porFechaHora != 0) return porFechaHora;
+
+  final idA = int.tryParse(a['id']?.toString() ?? '');
+  final idB = int.tryParse(b['id']?.toString() ?? '');
+  if (idA != null && idB != null) return idB.compareTo(idA);
+
+  return (b['id']?.toString() ?? '').compareTo(a['id']?.toString() ?? '');
+}
+
+int compararMovimientosPorFechaHoraAsc(
+    Map<String, dynamic> a,
+    Map<String, dynamic> b,
+    ) {
+  return compararMovimientosPorFechaHoraDesc(b, a);
+}
+
 String nombreMes(DateTime fecha) {
   const meses = [
     'Enero',
@@ -3345,17 +3378,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       },
     ).toList();
 
-    resultado.sort(
-          (a, b) {
-        final fechaA = convertirFecha(a['fecha']?.toString() ?? '');
-        final fechaB = convertirFecha(b['fecha']?.toString() ?? '');
-        final porFecha = fechaB.compareTo(fechaA);
-        if (porFecha != 0) return porFecha;
-        final idA = int.tryParse(a['id']?.toString() ?? '') ?? 0;
-        final idB = int.tryParse(b['id']?.toString() ?? '') ?? 0;
-        return idB.compareTo(idA);
-      },
-    );
+    resultado.sort(compararMovimientosPorFechaHoraDesc);
 
     return resultado;
   }
@@ -3494,15 +3517,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       final f = convertirFecha(m['fecha']?.toString() ?? '');
       return !f.isAfter(inicioHoy);
     }).toList()
-      ..sort(
-            (a, b) => convertirFecha(
-          b['fecha']?.toString() ?? '',
-        ).compareTo(
-          convertirFecha(
-            a['fecha']?.toString() ?? '',
-          ),
-        ),
-      );
+      ..sort(compararMovimientosPorFechaHoraDesc);
 
     final movimientosProximos = listaBase.where((m) {
       final f = convertirFecha(m['fecha']?.toString() ?? '');
@@ -3516,15 +3531,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
 
       return true;
     }).toList()
-      ..sort(
-            (a, b) => convertirFecha(
-          a['fecha']?.toString() ?? '',
-        ).compareTo(
-          convertirFecha(
-            b['fecha']?.toString() ?? '',
-          ),
-        ),
-      );
+      ..sort(compararMovimientosPorFechaHoraAsc);
 
     final movimientosMostrados =
     (_mostrarProximosMovimientos
@@ -3846,68 +3853,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
           ],
         ),
       ),
-      floatingActionButton:
-      Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (_mostrarOpcionesFab) ...[
-            SizedBox(
-              height: 44,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () {
-                  setState(() => _mostrarOpcionesFab = false);
-                  abrirNuevoMovimiento(tipoInicial: 'Ingreso');
-                },
-                icon: const Icon(Icons.arrow_upward),
-                label: const Text(
-                  'Ingreso',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 44,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () {
-                  setState(() => _mostrarOpcionesFab = false);
-                  abrirNuevoMovimiento(tipoInicial: 'Gasto');
-                },
-                icon: const Icon(Icons.arrow_downward),
-                label: const Text(
-                  'Gasto',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-          FloatingActionButton(
-            heroTag: 'fab_principal',
-            onPressed: () {
-              setState(() => _mostrarOpcionesFab = !_mostrarOpcionesFab);
-            },
-            child: Icon(_mostrarOpcionesFab ? Icons.close : Icons.add),
-          ),
-        ],
-      ),
+
     );
   }
 
@@ -4489,7 +4435,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
               child: SizedBox(
                 height: 46,
                 child: FilledButton.icon(
-                  onPressed: () => abrirNuevoMovimiento(),
+                  onPressed: () => abrirNuevoMovimiento(tipoInicial: 'Gasto'),
                   icon: const Icon(Icons.add),
                   label: const Text('Nuevo movimiento'),
                 ),
@@ -5772,16 +5718,7 @@ class _CalendarioState
     )
         .toList();
 
-    resultado.sort((a, b) {
-      final fechaA = convertirFecha(a['fecha']?.toString() ?? '');
-      final fechaB = convertirFecha(b['fecha']?.toString() ?? '');
-      final porFecha = fechaB.compareTo(fechaA);
-      if (porFecha != 0) return porFecha;
-
-      final idA = a['id']?.toString() ?? '';
-      final idB = b['id']?.toString() ?? '';
-      return idB.compareTo(idA);
-    });
+    resultado.sort(compararMovimientosPorFechaHoraDesc);
 
     return resultado;
   }
