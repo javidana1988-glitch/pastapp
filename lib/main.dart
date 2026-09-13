@@ -4855,8 +4855,8 @@ class _NuevoMovimientoState
                 ?.toString() ??
                 '',
           );
-    } else if (widget.tipoInicial != null) {
-      tipo = widget.tipoInicial;
+    } else {
+      tipo = widget.tipoInicial ?? 'Gasto';
       paso = 1;
     }
   }
