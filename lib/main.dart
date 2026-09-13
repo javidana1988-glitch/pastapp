@@ -616,10 +616,17 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   String? _filtroMovimientosInicio;
   bool _mostrarProximosMovimientos = false;
   Timer? _timerCambiosPendientes;
+  Timer? _timerComprobacionSincronizacion;
+  Timer? _timerSubidaAutomatica;
 
   final ServicioGoogleDrive _googleDrive = ServicioGoogleDrive();
   bool _googleInicializado = false;
   bool _googleSincronizando = false;
+  bool _datosInicialesCargados = false;
+  bool _sincronizacionAutomaticaActiva = false;
+  bool _sincronizacionEnCurso = false;
+  bool _aplicandoDatosRemotos = false;
+  String? _ultimaModificacionLocal;
 
   @override
   void initState() {
@@ -627,6 +634,9 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _timerCambiosPendientes = Timer.periodic(const Duration(seconds: 20), (_) {
       if (mounted) actualizarCambiosPendientes();
+    });
+    _timerComprobacionSincronizacion = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) _comprobarSincronizacionAutomatica();
     });
     _inicializarGoogle();
     cargarDatos();
@@ -638,6 +648,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       _googleInicializado = true;
       await _googleDrive.prepararSesionExistente();
       if (mounted) setState(() {});
+      await _inicializarSincronizacionAutomaticaSiProcede();
     } catch (_) {
       _googleInicializado = false;
       if (mounted) setState(() {});
@@ -648,6 +659,8 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timerCambiosPendientes?.cancel();
+    _timerComprobacionSincronizacion?.cancel();
+    _timerSubidaAutomatica?.cancel();
     super.dispose();
   }
 
@@ -655,6 +668,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       actualizarCambiosPendientes();
+      _comprobarSincronizacionAutomatica();
     }
   }
 
@@ -664,6 +678,8 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
 
   Future<void> cargarDatos() async {
     final prefs = await SharedPreferences.getInstance();
+
+    _ultimaModificacionLocal = prefs.getString('ultima_modificacion_local');
 
     final movimientosGuardados =
     prefs.getString('movimientos');
@@ -977,9 +993,11 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       cargando = false;
     });
 
-    await guardarDatos();
+    await guardarDatos(marcarComoCambioLocal: false);
     await generarRecurrentesPendientes();
     await actualizarCambiosPendientes();
+    _datosInicialesCargados = true;
+    await _inicializarSincronizacionAutomaticaSiProcede();
   }
 
   List<Map<String, dynamic>> copiarCategorias(
@@ -1004,9 +1022,13 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   // ==========================================================
 
   Map<String, dynamic> _datosParaSincronizar() {
+    final fecha = _ultimaModificacionLocal ??
+        DateTime.now().toUtc().toIso8601String();
+
     return {
-      'version': 3,
-      'fechaSincronizacion': DateTime.now().toIso8601String(),
+      'version': 4,
+      'fechaModificacion': fecha,
+      'fechaSincronizacion': DateTime.now().toUtc().toIso8601String(),
       'movimientos': movimientos,
       'categoriasGastos': categoriasGastos,
       'categoriasIngresos': categoriasIngresos,
@@ -1018,12 +1040,135 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     };
   }
 
+  DateTime? _fechaDeDatosRemotos(Map<String, dynamic> datos) {
+    final texto = (datos['fechaModificacion'] ??
+        datos['fechaSincronizacion'])
+        ?.toString();
+    if (texto == null || texto.isEmpty) return null;
+    return DateTime.tryParse(texto);
+  }
+
+  DateTime? _fechaDeDatosLocales() {
+    if (_ultimaModificacionLocal == null ||
+        _ultimaModificacionLocal!.isEmpty) {
+      return null;
+    }
+    return DateTime.tryParse(_ultimaModificacionLocal!);
+  }
+
+  Future<void> _inicializarSincronizacionAutomaticaSiProcede() async {
+    if (!_datosInicialesCargados ||
+        !_googleInicializado ||
+        _sincronizacionAutomaticaActiva) {
+      return;
+    }
+
+    _sincronizacionAutomaticaActiva = true;
+    await _comprobarSincronizacionAutomatica();
+  }
+
+  void _programarSubidaAutomatica() {
+    if (!_sincronizacionAutomaticaActiva || _aplicandoDatosRemotos) return;
+
+    _timerSubidaAutomatica?.cancel();
+    _timerSubidaAutomatica = Timer(
+      const Duration(milliseconds: 800),
+          () => _subirCambiosAutomaticamente(),
+    );
+  }
+
+  Future<void> _subirCambiosAutomaticamente() async {
+    if (!_sincronizacionAutomaticaActiva ||
+        _sincronizacionEnCurso ||
+        _aplicandoDatosRemotos) {
+      return;
+    }
+
+    final usuario = _googleDrive.usuario;
+    if (usuario == null) return;
+
+    try {
+      await _googleDrive.prepararSesionExistente();
+      if (!_googleDrive.tieneDriveAutorizado) return;
+
+      _sincronizacionEnCurso = true;
+      await _googleDrive.subirDatos(_datosParaSincronizar());
+    } catch (_) {
+      // Si no hay conexión, el dato queda guardado localmente y se reintentará.
+    } finally {
+      _sincronizacionEnCurso = false;
+    }
+  }
+
+  Future<void> _comprobarSincronizacionAutomatica() async {
+    if (!_sincronizacionAutomaticaActiva ||
+        _sincronizacionEnCurso ||
+        !_datosInicialesCargados ||
+        _aplicandoDatosRemotos) {
+      return;
+    }
+
+    final usuario = _googleDrive.usuario;
+    if (usuario == null) return;
+
+    try {
+      await _googleDrive.prepararSesionExistente();
+      if (!_googleDrive.tieneDriveAutorizado) return;
+
+      _sincronizacionEnCurso = true;
+      final datosRemotos = await _googleDrive.descargarDatos();
+
+      if (datosRemotos == null) {
+        if (_ultimaModificacionLocal == null) {
+          _ultimaModificacionLocal =
+              DateTime.now().toUtc().toIso8601String();
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(
+            'ultima_modificacion_local',
+            _ultimaModificacionLocal!,
+          );
+        }
+        await _googleDrive.subirDatos(_datosParaSincronizar());
+        return;
+      }
+
+      final fechaRemota = _fechaDeDatosRemotos(datosRemotos);
+      final fechaLocal = _fechaDeDatosLocales();
+
+      // Si no tenemos fecha local, la copia de Google es la referencia.
+      if (fechaLocal == null && fechaRemota != null) {
+        await _aplicarDatosSincronizados(datosRemotos);
+        return;
+      }
+
+      if (fechaRemota != null &&
+          fechaLocal != null &&
+          fechaRemota.isAfter(fechaLocal)) {
+        await _aplicarDatosSincronizados(datosRemotos);
+      } else if (fechaLocal != null &&
+          (fechaRemota == null || fechaLocal.isAfter(fechaRemota))) {
+        await _googleDrive.subirDatos(_datosParaSincronizar());
+      }
+    } catch (_) {
+      // Los fallos de red no interrumpen el uso de la aplicación.
+    } finally {
+      _sincronizacionEnCurso = false;
+    }
+  }
+
   Future<void> sincronizarConGoogle() async {
     try {
       await _asegurarGoogleDrive();
       if (!mounted) return;
       setState(() => _googleSincronizando = true);
       try {
+        _ultimaModificacionLocal =
+            DateTime.now().toUtc().toIso8601String();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          'ultima_modificacion_local',
+          _ultimaModificacionLocal!,
+        );
         await _googleDrive.subirDatos(_datosParaSincronizar());
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1215,6 +1360,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
 
   Future<void> _aplicarDatosSincronizados(
       Map<String, dynamic> datos) async {
+    _aplicandoDatosRemotos = true;
     final nuevosMovimientos = List<Map<String, dynamic>>.from(
       (datos['movimientos'] ?? []).map(
             (item) => Map<String, dynamic>.from(item),
@@ -1292,8 +1438,17 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       }
     });
 
-    await guardarDatos();
-    await generarRecurrentesPendientes();
+    final fechaRemota = _fechaDeDatosRemotos(datos);
+    if (fechaRemota != null) {
+      _ultimaModificacionLocal = fechaRemota.toUtc().toIso8601String();
+    }
+
+    try {
+      await guardarDatos(marcarComoCambioLocal: false);
+      await generarRecurrentesPendientes();
+    } finally {
+      _aplicandoDatosRemotos = false;
+    }
   }
 
 
@@ -1356,6 +1511,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
         SnackBar(content: Text('Google conectado: ${usuario.email}')),
       );
       setState(() {});
+      await _inicializarSincronizacionAutomaticaSiProcede();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1395,9 +1551,19 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   // GUARDAR
   // ==========================================================
 
-  Future<void> guardarDatos() async {
-    final prefs =
-    await SharedPreferences.getInstance();
+  Future<void> guardarDatos({bool marcarComoCambioLocal = true}) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    if (marcarComoCambioLocal &&
+        _datosInicialesCargados &&
+        !_aplicandoDatosRemotos) {
+      _ultimaModificacionLocal =
+          DateTime.now().toUtc().toIso8601String();
+      await prefs.setString(
+        'ultima_modificacion_local',
+        _ultimaModificacionLocal!,
+      );
+    }
 
     await prefs.setString(
       'movimientos',
@@ -1430,6 +1596,12 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       'categorias_patrimonio',
       jsonEncode(categoriasPatrimonio),
     );
+
+    if (marcarComoCambioLocal &&
+        _datosInicialesCargados &&
+        !_aplicandoDatosRemotos) {
+      _programarSubidaAutomatica();
+    }
   }
 
   // ==========================================================
@@ -7819,7 +7991,7 @@ class _AjustesState
               subtitle: Text(
                 widget.googleUsuario == null
                     ? 'Sincroniza tus datos entre dispositivos'
-                    : widget.googleUsuario!,
+                    : '${widget.googleUsuario!} · Sincronización automática',
               ),
               trailing: widget.googleSincronizando
                   ? const SizedBox(
@@ -7842,21 +8014,10 @@ class _AjustesState
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            ListTile(
-                              leading: const Icon(Icons.sync),
-                              title: const Text('Sincronizar ahora'),
-                              onTap: () async {
-                                Navigator.pop(sheetContext);
-                                await widget.onGoogleSincronizar();
-                              },
-                            ),
-                            ListTile(
-                              leading: const Icon(Icons.download_outlined),
-                              title: const Text('Restaurar desde Google'),
-                              onTap: () async {
-                                Navigator.pop(sheetContext);
-                                await widget.onGoogleRestaurar();
-                              },
+                            const ListTile(
+                              leading: Icon(Icons.sync),
+                              title: Text('Sincronización automática activa'),
+                              subtitle: Text('Los cambios se guardan y actualizan automáticamente.'),
                             ),
                             ListTile(
                               leading: const Icon(Icons.link_off),
@@ -7872,7 +8033,6 @@ class _AjustesState
                     ),
                   );
                 }
-                if (mounted) setState(() {});
               },
             ),
           ),
