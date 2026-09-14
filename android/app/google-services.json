@@ -12,7 +12,20 @@
           "package_name": "com.example.mis_finanzas_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "32193813079-bj3lmi3q58ri7nb3cnjdroeq171h8tc9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.mis_finanzas_app",
+            "certificate_hash": "0787a6d2ff3afb0c4e62f86d4d613b9af58cc1dd"
+          }
+        },
+        {
+          "client_id": "32193813079-th0s42bbho4gv5qls88o6hmogsvqhti5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAUoWb9d_R5dk1XPHhpsmmc6KTxPpw38sA"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "32193813079-q9461ho6s57j7k6c46tgcm3p9d51uip5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

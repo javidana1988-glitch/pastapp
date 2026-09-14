@@ -6,6 +6,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' as ex;
 import 'package:image_picker/image_picker.dart';
@@ -13,12 +15,18 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:googleapis/drive/v3.dart' as drive;
-import 'package:extension_google_sign_in_as_googleapis_auth/extension_google_sign_in_as_googleapis_auth.dart';
-import 'google_web_button.dart'
-if (dart.library.js_interop) 'google_web_button_web.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-void main() {
+class _CancelRecurrenceAction implements Exception {}
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(const MisFinanzasApp());
 }
 
@@ -412,199 +420,73 @@ class ServicioDivisas {
 
 
 // ============================================================
-// GOOGLE / SINCRONIZACIÓN
+// GOOGLE / FIREBASE / SINCRONIZACIÓN
 // ============================================================
 
-/// ID de cliente OAuth de tipo "Aplicación web".
-///
-/// Todavía no lo rellenamos porque Google Cloud debe tener creado el cliente
-/// web además del cliente Android. Cuando lo creemos, sustituiremos este
-/// valor por el ID real.
-const String googleServerClientId = '32193813079-q9461ho6s57j7k6c46tgcm3p9d51uip5.apps.googleusercontent.com';
-
-const List<String> googleDriveScopes = <String>[
-  'https://www.googleapis.com/auth/drive.appdata',
-];
+const String googleServerClientId =
+    '32193813079-q9461ho6s57j7k6c46tgcm3p9d51uip5.apps.googleusercontent.com';
 
 class ServicioGoogleDrive {
-  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
-  drive.DriveApi? _driveApi;
-  GoogleSignInAccount? _usuario;
-  StreamSubscription<GoogleSignInAuthenticationEvent>? _authSubscription;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  GoogleSignInAccount? _googleAccount;
 
-  GoogleSignInAccount? get usuario => _usuario;
-  bool get tieneDriveAutorizado => _driveApi != null;
-
-  void crearDriveDesdeAutorizacion(
-      GoogleSignInClientAuthorization autorizacion,
-      ) {
-    _driveApi = drive.DriveApi(
-      autorizacion.authClient(scopes: googleDriveScopes),
-    );
-  }
+  User? get usuario => _auth.currentUser;
+  bool get tieneDriveAutorizado => _auth.currentUser != null;
 
   Future<void> inicializar() async {
-    // En Web, google_sign_in_web obtiene el Client ID del meta-tag
-    // de web/index.html y NO admite serverClientId.
-    // En Android sí necesitamos el Web Client ID como serverClientId.
+    if (!kIsWeb) {
+      await GoogleSignIn.instance.initialize(
+        serverClientId: googleServerClientId.isEmpty ? null : googleServerClientId,
+      );
+    }
+  }
+
+  Future<User?> iniciarSesion() async {
     if (kIsWeb) {
-      await _googleSignIn.initialize();
-    } else {
-      await _googleSignIn.initialize(
-        serverClientId:
-        googleServerClientId.isEmpty ? null : googleServerClientId,
-      );
+      final provider = GoogleAuthProvider();
+      final resultado = await _auth.signInWithPopup(provider);
+      return resultado.user;
     }
-
-    await _authSubscription?.cancel();
-    _authSubscription = _googleSignIn.authenticationEvents.listen((evento) {
-      if (evento is GoogleSignInAuthenticationEventSignIn) {
-        _usuario = evento.user;
-      } else if (evento is GoogleSignInAuthenticationEventSignOut) {
-        _usuario = null;
-        _driveApi = null;
-      }
-    });
-
-    try {
-      final cuenta = await _googleSignIn.attemptLightweightAuthentication();
-      if (cuenta != null) {
-        _usuario = cuenta;
-      }
-    } catch (_) {
-      // Si no existe una sesión previa, el usuario podrá iniciar sesión
-      // explícitamente desde Ajustes.
-    }
+    final cuenta = await GoogleSignIn.instance.authenticate();
+    _googleAccount = cuenta;
+    final authentication = await cuenta.authentication;
+    final credential = GoogleAuthProvider.credential(idToken: authentication.idToken);
+    final resultado = await _auth.signInWithCredential(credential);
+    return resultado.user;
   }
 
-  Future<GoogleSignInAccount?> iniciarSesion() async {
-    if (googleServerClientId.isEmpty) {
-      throw Exception(
-        'Falta configurar el cliente OAuth de Google en la aplicación.',
-      );
-    }
-
-    if (!_googleSignIn.supportsAuthenticate()) {
-      throw Exception(
-        'WEB_SIGN_IN_UI_REQUIRED',
-      );
-    }
-
-    final cuenta = await _googleSignIn.authenticate(
-      scopeHint: googleDriveScopes,
-    );
-    _usuario = cuenta;
-
-    final autorizacion = await cuenta.authorizationClient.authorizeScopes(
-      googleDriveScopes,
-    );
-
-    _driveApi = drive.DriveApi(
-      autorizacion.authClient(scopes: googleDriveScopes),
-    );
-
-    return cuenta;
-  }
-
-  Future<void> prepararSesionExistente() async {
-    final cuenta = _usuario;
-    if (cuenta == null) return;
-
-    try {
-      final autorizacion =
-      await cuenta.authorizationClient.authorizationForScopes(
-        googleDriveScopes,
-      );
-      if (autorizacion != null) {
-        crearDriveDesdeAutorizacion(autorizacion);
-      }
-    } catch (_) {}
-  }
+  Future<void> prepararSesionExistente() async {}
 
   Future<void> cerrarSesion() async {
-    _driveApi = null;
-    _usuario = null;
-    await _googleSignIn.signOut();
+    _googleAccount = null;
+    if (!kIsWeb) {
+      try { await GoogleSignIn.instance.signOut(); } catch (_) {}
+    }
+    await _auth.signOut();
   }
 
-  Future<String?> _buscarArchivo() async {
-    final api = _driveApi;
-    if (api == null) return null;
-
-    final resultado = await api.files.list(
-      spaces: 'appDataFolder',
-      q: "name = 'mis_finanzas_sync.json' and trashed = false",
-      $fields: 'files(id,name)',
-      pageSize: 10,
-    );
-
-    if (resultado.files == null || resultado.files!.isEmpty) return null;
-    return resultado.files!.first.id;
+  DocumentReference<Map<String, dynamic>>? get _documentoDatos {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return null;
+    return _firestore.collection('usuarios').doc(uid).collection('datos').doc('principal');
   }
 
   Future<void> subirDatos(Map<String, dynamic> datos) async {
-    final api = _driveApi;
-    if (api == null) {
-      throw Exception('No hay una cuenta de Google conectada.');
-    }
-
-    final contenido = jsonEncode(datos);
-    final bytes = utf8.encode(contenido);
-    final media = drive.Media(
-      Stream<List<int>>.value(bytes),
-      bytes.length,
-    );
-
-    final existente = await _buscarArchivo();
-
-    if (existente == null) {
-      final metadata = drive.File()
-        ..name = 'mis_finanzas_sync.json'
-        ..parents = <String>['appDataFolder'];
-
-      await api.files.create(
-        metadata,
-        uploadMedia: media,
-        $fields: 'id,name',
-      );
-    } else {
-      final metadata = drive.File()..name = 'mis_finanzas_sync.json';
-      await api.files.update(
-        metadata,
-        existente,
-        uploadMedia: media,
-        $fields: 'id,name',
-      );
-    }
+    final documento = _documentoDatos;
+    if (documento == null) throw Exception('No hay una cuenta de Google conectada.');
+    await documento.set(datos);
   }
 
   Future<Map<String, dynamic>?> descargarDatos() async {
-    final api = _driveApi;
-    if (api == null) {
-      throw Exception('No hay una cuenta de Google conectada.');
-    }
-
-    final id = await _buscarArchivo();
-    if (id == null) return null;
-
-    final respuesta = await api.files.get(
-      id,
-      downloadOptions: drive.DownloadOptions.fullMedia,
-    );
-
-    if (respuesta is! drive.Media) return null;
-
-    final contenido =
-    await respuesta.stream.transform(utf8.decoder).join();
-    final datos = jsonDecode(contenido);
-
-    if (datos is! Map) return null;
-    return Map<String, dynamic>.from(datos);
+    final documento = _documentoDatos;
+    if (documento == null) throw Exception('No hay una cuenta de Google conectada.');
+    final snapshot = await documento.get();
+    if (!snapshot.exists || snapshot.data() == null) return null;
+    return Map<String, dynamic>.from(snapshot.data()!);
   }
 }
 
-// ============================================================
-// APLICACIÓN
 // ============================================================
 
 class Aplicacion extends StatefulWidget {
@@ -648,6 +530,19 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   bool _mostrarOpcionesFab = false;
   String? _filtroMovimientosInicio;
   bool _mostrarProximosMovimientos = false;
+
+  Future<void> abrirBuscadorMovimientos() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BuscadorMovimientosPage(
+          movimientos: movimientos,
+          onMovimientoTap: mostrarDetalleMovimiento,
+          onMovimientoLongPress: mostrarOpcionesMovimiento,
+        ),
+      ),
+    );
+  }
   Timer? _timerCambiosPendientes;
   Timer? _timerComprobacionSincronizacion;
   Timer? _timerSubidaAutomatica;
@@ -1054,12 +949,13 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   // GOOGLE DRIVE
   // ==========================================================
 
-  Map<String, dynamic> _datosParaSincronizar() {
-    final fecha = _ultimaModificacionLocal ??
-        DateTime.now().toUtc().toIso8601String();
+// SINCRONIZACIÓN FIREBASE
+// ============================================================
 
+  Map<String, dynamic> _datosParaSincronizar() {
+    final fecha = _ultimaModificacionLocal ?? DateTime.now().toUtc().toIso8601String();
     return {
-      'version': 4,
+      'version': 5,
       'fechaModificacion': fecha,
       'fechaSincronizacion': DateTime.now().toUtc().toIso8601String(),
       'movimientos': movimientos,
@@ -1074,119 +970,61 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   }
 
   DateTime? _fechaDeDatosRemotos(Map<String, dynamic> datos) {
-    final texto = (datos['fechaModificacion'] ??
-        datos['fechaSincronizacion'])
-        ?.toString();
+    final texto = (datos['fechaModificacion'] ?? datos['fechaSincronizacion'])?.toString();
     if (texto == null || texto.isEmpty) return null;
     return DateTime.tryParse(texto);
   }
 
   DateTime? _fechaDeDatosLocales() {
-    if (_ultimaModificacionLocal == null ||
-        _ultimaModificacionLocal!.isEmpty) {
-      return null;
-    }
+    if (_ultimaModificacionLocal == null || _ultimaModificacionLocal!.isEmpty) return null;
     return DateTime.tryParse(_ultimaModificacionLocal!);
   }
 
   Future<void> _inicializarSincronizacionAutomaticaSiProcede() async {
-    if (!_datosInicialesCargados ||
-        !_googleInicializado ||
-        _sincronizacionAutomaticaActiva) {
-      return;
-    }
-
+    if (!_datosInicialesCargados || !_googleInicializado ||
+        _sincronizacionAutomaticaActiva || _googleDrive.usuario == null) return;
     _sincronizacionAutomaticaActiva = true;
     await _comprobarSincronizacionAutomatica();
   }
 
   void _programarSubidaAutomatica() {
     if (!_sincronizacionAutomaticaActiva || _aplicandoDatosRemotos) return;
-
     _timerSubidaAutomatica?.cancel();
-    _timerSubidaAutomatica = Timer(
-      const Duration(milliseconds: 800),
-          () => _subirCambiosAutomaticamente(),
-    );
+    _timerSubidaAutomatica = Timer(const Duration(milliseconds: 800), _subirCambiosAutomaticamente);
   }
 
   Future<void> _subirCambiosAutomaticamente() async {
-    if (!_sincronizacionAutomaticaActiva ||
-        _sincronizacionEnCurso ||
-        _aplicandoDatosRemotos) {
-      return;
-    }
-
-    final usuario = _googleDrive.usuario;
-    if (usuario == null) return;
-
+    if (!_sincronizacionAutomaticaActiva || _sincronizacionEnCurso || _aplicandoDatosRemotos || _googleDrive.usuario == null) return;
     try {
-      await _googleDrive.prepararSesionExistente();
-      if (!_googleDrive.tieneDriveAutorizado) return;
-
       _sincronizacionEnCurso = true;
       await _googleDrive.subirDatos(_datosParaSincronizar());
-    } catch (_) {
-      // Si no hay conexión, el dato queda guardado localmente y se reintentará.
-    } finally {
-      _sincronizacionEnCurso = false;
-    }
+    } catch (_) {} finally { _sincronizacionEnCurso = false; }
   }
 
   Future<void> _comprobarSincronizacionAutomatica() async {
-    if (!_sincronizacionAutomaticaActiva ||
-        _sincronizacionEnCurso ||
-        !_datosInicialesCargados ||
-        _aplicandoDatosRemotos) {
-      return;
-    }
-
-    final usuario = _googleDrive.usuario;
-    if (usuario == null) return;
-
+    if (!_sincronizacionAutomaticaActiva || _sincronizacionEnCurso || !_datosInicialesCargados || _aplicandoDatosRemotos || _googleDrive.usuario == null) return;
     try {
-      await _googleDrive.prepararSesionExistente();
-      if (!_googleDrive.tieneDriveAutorizado) return;
-
       _sincronizacionEnCurso = true;
       final datosRemotos = await _googleDrive.descargarDatos();
-
       if (datosRemotos == null) {
         if (_ultimaModificacionLocal == null) {
-          _ultimaModificacionLocal =
-              DateTime.now().toUtc().toIso8601String();
+          _ultimaModificacionLocal = DateTime.now().toUtc().toIso8601String();
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setString(
-            'ultima_modificacion_local',
-            _ultimaModificacionLocal!,
-          );
+          await prefs.setString('ultima_modificacion_local', _ultimaModificacionLocal!);
         }
         await _googleDrive.subirDatos(_datosParaSincronizar());
         return;
       }
-
       final fechaRemota = _fechaDeDatosRemotos(datosRemotos);
       final fechaLocal = _fechaDeDatosLocales();
-
-      // Si no tenemos fecha local, la copia de Google es la referencia.
       if (fechaLocal == null && fechaRemota != null) {
         await _aplicarDatosSincronizados(datosRemotos);
-        return;
-      }
-
-      if (fechaRemota != null &&
-          fechaLocal != null &&
-          fechaRemota.isAfter(fechaLocal)) {
+      } else if (fechaRemota != null && fechaLocal != null && fechaRemota.isAfter(fechaLocal)) {
         await _aplicarDatosSincronizados(datosRemotos);
-      } else if (fechaLocal != null &&
-          (fechaRemota == null || fechaLocal.isAfter(fechaRemota))) {
+      } else if (fechaLocal != null && (fechaRemota == null || fechaLocal.isAfter(fechaRemota))) {
         await _googleDrive.subirDatos(_datosParaSincronizar());
       }
-    } catch (_) {
-      // Los fallos de red no interrumpen el uso de la aplicación.
-    } finally {
-      _sincronizacionEnCurso = false;
-    }
+    } catch (_) {} finally { _sincronizacionEnCurso = false; }
   }
 
   Future<void> sincronizarConGoogle() async {
@@ -1195,168 +1033,15 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       if (!mounted) return;
       setState(() => _googleSincronizando = true);
       try {
-        _ultimaModificacionLocal =
-            DateTime.now().toUtc().toIso8601String();
+        _ultimaModificacionLocal = DateTime.now().toUtc().toIso8601String();
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(
-          'ultima_modificacion_local',
-          _ultimaModificacionLocal!,
-        );
+        await prefs.setString('ultima_modificacion_local', _ultimaModificacionLocal!);
         await _googleDrive.subirDatos(_datosParaSincronizar());
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Datos sincronizados con Google')),
-          );
-        }
-      } finally {
-        if (mounted) setState(() => _googleSincronizando = false);
-      }
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Datos sincronizados con Google')));
+      } finally { if (mounted) setState(() => _googleSincronizando = false); }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'No se ha podido sincronizar: ${e.toString().replaceFirst('Exception: ', '')}',
-          ),
-        ),
-      );
-    }
-  }
-
-  /// En Web authorizeScopes() abre un popup OAuth y el navegador exige que
-  /// la llamada nazca directamente de una acción del usuario.
-  Future<bool> _autorizarGoogleDrive() async {
-    final usuario = _googleDrive.usuario;
-    if (usuario == null) {
-      throw Exception('No se ha podido iniciar sesión con Google.');
-    }
-
-    await _googleDrive.prepararSesionExistente();
-    if (_googleDrive.tieneDriveAutorizado) return true;
-
-    if (!kIsWeb) {
-      final autorizacion = await usuario.authorizationClient.authorizeScopes(
-        googleDriveScopes,
-      );
-      _googleDrive.crearDriveDesdeAutorizacion(autorizacion);
-      return _googleDrive.tieneDriveAutorizado;
-    }
-
-    final autorizado = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        bool procesando = false;
-        String? error;
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Autorizar Google Drive'),
-              content: SizedBox(
-                width: 430,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'PastApp necesita permiso para guardar y recuperar tu copia de seguridad en Google Drive.',
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Tus datos se guardan en el espacio privado de la aplicación de tu Google Drive.',
-                    ),
-                    if (error != null) ...[
-                      const SizedBox(height: 14),
-                      Text(
-                        error!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: procesando
-                      ? null
-                      : () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Cancelar'),
-                ),
-                FilledButton.icon(
-                  onPressed: procesando
-                      ? null
-                      : () async {
-                    setDialogState(() {
-                      procesando = true;
-                      error = null;
-                    });
-                    try {
-                      // Esta llamada está directamente dentro de
-                      // onPressed, por lo que el navegador permite el
-                      // popup de autorización de Google.
-                      final autorizacion = await usuario
-                          .authorizationClient
-                          .authorizeScopes(googleDriveScopes);
-                      _googleDrive.crearDriveDesdeAutorizacion(
-                        autorizacion,
-                      );
-                      if (context.mounted) {
-                        Navigator.of(dialogContext).pop(
-                          _googleDrive.tieneDriveAutorizado,
-                        );
-                      }
-                    } catch (e) {
-                      setDialogState(() {
-                        procesando = false;
-                        error = e
-                            .toString()
-                            .replaceFirst('Exception: ', '');
-                      });
-                    }
-                  },
-                  icon: procesando
-                      ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                      : const Icon(Icons.cloud_done_outlined),
-                  label: Text(
-                    procesando ? 'Autorizando...' : 'Autorizar Drive',
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-    return autorizado == true && _googleDrive.tieneDriveAutorizado;
-  }
-
-  Future<void> _asegurarGoogleDrive() async {
-    if (!_googleInicializado) await _inicializarGoogle();
-
-    if (_googleDrive.usuario == null) {
-      if (kIsWeb) {
-        await conectarGoogleDesdeAjustes();
-      } else {
-        await _googleDrive.iniciarSesion();
-      }
-    }
-
-    if (_googleDrive.usuario == null) {
-      throw Exception('No se ha podido iniciar sesión con Google.');
-    }
-
-    await _googleDrive.prepararSesionExistente();
-    if (_googleDrive.tieneDriveAutorizado) return;
-
-    final autorizado = await _autorizarGoogleDrive();
-    if (!autorizado || !_googleDrive.tieneDriveAutorizado) {
-      throw Exception('No se ha autorizado el acceso a Google Drive.');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se ha podido sincronizar: ${e.toString().replaceFirst('Exception: ', '')}')));
     }
   }
 
@@ -1367,222 +1052,94 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       setState(() => _googleSincronizando = true);
       try {
         final datos = await _googleDrive.descargarDatos();
-        if (datos == null) {
-          throw Exception('No existe todavía una copia en Google Drive.');
-        }
+        if (datos == null) throw Exception('No existe todavía una copia sincronizada.');
         await _aplicarDatosSincronizados(datos);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Datos restaurados desde Google')),
-          );
-        }
-      } finally {
-        if (mounted) setState(() => _googleSincronizando = false);
-      }
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Datos restaurados desde Google')));
+      } finally { if (mounted) setState(() => _googleSincronizando = false); }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'No se ha podido restaurar: ${e.toString().replaceFirst('Exception: ', '')}',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se ha podido restaurar: ${e.toString().replaceFirst('Exception: ', '')}')));
     }
   }
 
-  Future<void> _aplicarDatosSincronizados(
-      Map<String, dynamic> datos) async {
+  Future<void> _aplicarDatosSincronizados(Map<String, dynamic> datos) async {
     _aplicandoDatosRemotos = true;
-    final nuevosMovimientos = List<Map<String, dynamic>>.from(
-      (datos['movimientos'] ?? []).map(
-            (item) => Map<String, dynamic>.from(item),
-      ),
-    );
-
-    final nuevasCategoriasGastos =
-    List<Map<String, dynamic>>.from(
-      (datos['categoriasGastos'] ?? []).map((item) {
-        final mapa = Map<String, dynamic>.from(item);
-        mapa['subcategorias'] =
-        List<String>.from(mapa['subcategorias'] ?? []);
-        mapa['archivada'] = mapa['archivada'] == true;
-        mapa['ocultaAlAnadir'] = mapa['ocultaAlAnadir'] == true;
-        return mapa;
-      }),
-    );
-
-    final nuevasCategoriasIngresos =
-    List<Map<String, dynamic>>.from(
-      (datos['categoriasIngresos'] ?? []).map((item) {
-        final mapa = Map<String, dynamic>.from(item);
-        mapa['subcategorias'] =
-        List<String>.from(mapa['subcategorias'] ?? []);
-        mapa['archivada'] = mapa['archivada'] == true;
-        mapa['ocultaAlAnadir'] = mapa['ocultaAlAnadir'] == true;
-        return mapa;
-      }),
-    );
-
-    final nuevosHistoricos = List<Map<String, dynamic>>.from(
-      (datos['historicos'] ?? []).map(
-            (item) => Map<String, dynamic>.from(item),
-      ),
-    );
-
-    final nuevosPatrimonios = List<Map<String, dynamic>>.from(
-      (datos['patrimonios'] ?? []).map((item) {
-        final mapa = Map<String, dynamic>.from(item);
-        mapa['cuentas'] = List<Map<String, dynamic>>.from(
-          (mapa['cuentas'] ?? []).map(
-                (cuenta) => Map<String, dynamic>.from(cuenta),
-          ),
-        );
-        return mapa;
-      }),
-    );
-
-    final nuevasCategoriasPatrimonio =
-    List<Map<String, String>>.from(
-      (datos['categoriasPatrimonio'] ?? []).map(
-            (item) => Map<String, String>.from(item),
-      ),
-    );
-
+    final nuevosMovimientos = List<Map<String, dynamic>>.from((datos['movimientos'] ?? []).map((item) => Map<String, dynamic>.from(item)));
+    final nuevasCategoriasGastos = List<Map<String, dynamic>>.from((datos['categoriasGastos'] ?? []).map((item) {
+      final mapa = Map<String, dynamic>.from(item);
+      mapa['subcategorias'] = List<String>.from(mapa['subcategorias'] ?? []);
+      mapa['archivada'] = mapa['archivada'] == true;
+      mapa['ocultaAlAnadir'] = mapa['ocultaAlAnadir'] == true;
+      return mapa;
+    }));
+    final nuevasCategoriasIngresos = List<Map<String, dynamic>>.from((datos['categoriasIngresos'] ?? []).map((item) {
+      final mapa = Map<String, dynamic>.from(item);
+      mapa['subcategorias'] = List<String>.from(mapa['subcategorias'] ?? []);
+      mapa['archivada'] = mapa['archivada'] == true;
+      mapa['ocultaAlAnadir'] = mapa['ocultaAlAnadir'] == true;
+      return mapa;
+    }));
+    final nuevosHistoricos = List<Map<String, dynamic>>.from((datos['historicos'] ?? []).map((item) => Map<String, dynamic>.from(item)));
+    final nuevosPatrimonios = List<Map<String, dynamic>>.from((datos['patrimonios'] ?? []).map((item) {
+      final mapa = Map<String, dynamic>.from(item);
+      mapa['cuentas'] = List<Map<String, dynamic>>.from((mapa['cuentas'] ?? []).map((cuenta) => Map<String, dynamic>.from(cuenta)));
+      return mapa;
+    }));
+    final nuevasCategoriasPatrimonio = List<Map<String, String>>.from((datos['categoriasPatrimonio'] ?? []).map((item) => Map<String, String>.from(item)));
     setState(() {
       movimientos = nuevosMovimientos;
-      categoriasGastos = nuevasCategoriasGastos.isEmpty
-          ? copiarCategorias(categoriasGastosIniciales)
-          : nuevasCategoriasGastos;
-      categoriasIngresos = nuevasCategoriasIngresos.isEmpty
-          ? copiarCategorias(categoriasIngresosIniciales)
-          : nuevasCategoriasIngresos;
-      correcciones = List<Map<String, dynamic>>.from(
-        (datos['correcciones'] ?? []).map(
-              (item) => Map<String, dynamic>.from(item),
-        ),
-      );
-      balanceInicial =
-          ((datos['balanceInicial'] as num?) ?? 0).toDouble();
+      categoriasGastos = nuevasCategoriasGastos.isEmpty ? copiarCategorias(categoriasGastosIniciales) : nuevasCategoriasGastos;
+      categoriasIngresos = nuevasCategoriasIngresos.isEmpty ? copiarCategorias(categoriasIngresosIniciales) : nuevasCategoriasIngresos;
+      correcciones = List<Map<String, dynamic>>.from((datos['correcciones'] ?? []).map((item) => Map<String, dynamic>.from(item)));
+      balanceInicial = ((datos['balanceInicial'] as num?) ?? 0).toDouble();
       historicos = nuevosHistoricos;
       patrimonios = nuevosPatrimonios;
-      if (nuevasCategoriasPatrimonio.isNotEmpty) {
-        categoriasPatrimonio = nuevasCategoriasPatrimonio;
-      }
+      if (nuevasCategoriasPatrimonio.isNotEmpty) categoriasPatrimonio = nuevasCategoriasPatrimonio;
     });
-
     final fechaRemota = _fechaDeDatosRemotos(datos);
-    if (fechaRemota != null) {
-      _ultimaModificacionLocal = fechaRemota.toUtc().toIso8601String();
-    }
-
+    if (fechaRemota != null) _ultimaModificacionLocal = fechaRemota.toUtc().toIso8601String();
     try {
       await guardarDatos(marcarComoCambioLocal: false);
       await generarRecurrentesPendientes();
-    } finally {
-      _aplicandoDatosRemotos = false;
-    }
+    } finally { _aplicandoDatosRemotos = false; }
   }
-
 
   Future<void> conectarGoogleDesdeAjustes() async {
     try {
       if (!_googleInicializado) await _inicializarGoogle();
-
-      if (_googleDrive.usuario == null) {
-        if (!_googleDriveSoportaAuthenticate()) {
-          final conectado = await showDialog<bool>(
-            context: context,
-            barrierDismissible: true,
-            builder: (dialogContext) {
-              return AlertDialog(
-                title: const Text('Conectar con Google'),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Inicia sesión con el botón oficial de Google.',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 20),
-                    botonGoogleWeb(
-                      onSignedIn: () {
-                        Navigator.of(dialogContext).pop(true);
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-          if (conectado != true) return;
-        } else {
-          await _googleDrive.iniciarSesion();
-        }
-      }
-
+      if (_googleDrive.usuario == null) await _googleDrive.iniciarSesion();
       if (!mounted) return;
       final usuario = _googleDrive.usuario;
-      if (usuario == null) {
-        throw Exception('No se ha podido conectar la cuenta.');
-      }
-
-      await _googleDrive.prepararSesionExistente();
-      if (!_googleDrive.tieneDriveAutorizado) {
-        final autorizado = await _autorizarGoogleDrive();
-        if (!autorizado) return;
-      }
-
-      if (!_googleDrive.tieneDriveAutorizado) {
-        throw Exception(
-          'Google se ha conectado, pero no se ha autorizado el acceso a Drive.',
-        );
-      }
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Google conectado: ${usuario.email}')),
-      );
+      if (usuario == null) throw Exception('No se ha podido conectar la cuenta.');
+      _sincronizacionAutomaticaActiva = true;
       setState(() {});
-      await _inicializarSincronizacionAutomaticaSiProcede();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Google conectado: ${usuario.email ?? ''}')));
+      await _comprobarSincronizacionAutomatica();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'No se ha podido conectar Google: ${e.toString().replaceFirst('Exception: ', '')}',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se ha podido conectar Google: ${e.toString().replaceFirst('Exception: ', '')}')));
     }
-  }
-
-  bool _googleDriveSoportaAuthenticate() {
-    return GoogleSignIn.instance.supportsAuthenticate();
   }
 
   Future<void> desconectarGoogleDesdeAjustes() async {
     try {
       await _googleDrive.cerrarSesion();
+      _sincronizacionAutomaticaActiva = false;
       if (mounted) {
         setState(() {});
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Google desconectado'),
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Google desconectado')));
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se ha podido desconectar Google: $e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se ha podido desconectar Google: ${e.toString().replaceFirst('Exception: ', '')}')));
     }
   }
 
-  // ==========================================================
-  // GUARDAR
-  // ==========================================================
+  Future<void> _asegurarGoogleDrive() async {
+    if (!_googleInicializado) await _inicializarGoogle();
+    if (_googleDrive.usuario == null) await conectarGoogleDesdeAjustes();
+    if (_googleDrive.usuario == null) throw Exception('No se ha podido iniciar sesión con Google.');
+  }
 
   Future<void> guardarDatos({bool marcarComoCambioLocal = true}) async {
     final prefs = await SharedPreferences.getInstance();
@@ -1970,7 +1527,8 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     ).toList();
 
     final ahora = DateTime.now();
-    final limite = DateTime(ahora.year, ahora.month + 24, ahora.day);
+    // Las recurrencias se mantienen durante 100 años, tanto en Web como en Android.
+    final limite = DateTime(ahora.year + 100, ahora.month, ahora.day);
 
     for (final recurrente in recurrentes) {
       final fechaOriginal = convertirFecha(
@@ -1988,7 +1546,10 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       (((recurrente['plantillaIntervaloMeses'] as num?)?.toInt() ?? (recurrente['intervaloMeses'] as num?)?.toInt() ?? 1).clamp(1, 120)).toInt();
       recurrente['intervaloMeses'] = intervalo;
 
-      DateTime fecha = sumarMeses(fechaOriginal, intervalo);
+      final inicioProgramacion = convertirFecha(recurrente['recurrenceStartDate']?.toString() ?? '');
+      DateTime fecha = inicioProgramacion.year != 1900
+          ? inicioProgramacion
+          : sumarMeses(fechaOriginal, intervalo);
 
       while (!fecha.isAfter(limite)) {
         final omitidas = List<String>.from(
@@ -2271,30 +1832,155 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     );
   }
 
-  Future<int?> preguntarAlcanceEdicionRecurrente(Map<String, dynamic> original) async {
-    if (original['recurrente'] != true) return 0;
+  bool _esParteDeSerieRecurrente(Map<String, dynamic> movimiento) {
+    if (movimiento['recurrente'] == true) return true;
+    final recurrenceId = movimiento['recurrenceId']?.toString();
+    if (recurrenceId == null || recurrenceId.isEmpty) return false;
+    return movimientos.any((m) => m['id']?.toString() == recurrenceId && m['recurrente'] == true);
+  }
+
+  String _idRaizSerieRecurrente(Map<String, dynamic> movimiento) {
+    return movimiento['recurrenceId']?.toString() ?? movimiento['id']?.toString() ?? '';
+  }
+
+  Map<String, dynamic>? _raizSerie(Map<String, dynamic> movimiento) {
+    final rootId = _idRaizSerieRecurrente(movimiento);
+    for (final m in movimientos) {
+      if (m['id']?.toString() == rootId) return m;
+    }
+    return null;
+  }
+
+  List<Map<String, dynamic>> _entradasSerie(String rootId) {
+    return movimientos.where((m) {
+      return m['id']?.toString() == rootId || m['recurrenceId']?.toString() == rootId;
+    }).toList();
+  }
+
+  void _limpiarMetadatosRecurrencia(Map<String, dynamic> movimiento) {
+    movimiento['recurrente'] = false;
+    movimiento['recurrenceId'] = null;
+    movimiento['intervaloMeses'] = 1;
+    movimiento['plantillaCantidad'] = null;
+    movimiento['plantillaCantidadOriginal'] = null;
+    movimiento['plantillaMoneda'] = null;
+    movimiento['plantillaTipoCambio'] = null;
+    movimiento['plantillaTipoCambioPendiente'] = null;
+    movimiento['plantillaCategoria'] = null;
+    movimiento['plantillaSubcategoria'] = null;
+    movimiento['plantillaEmoji'] = null;
+    movimiento['plantillaNota'] = null;
+    movimiento['plantillaFotoPath'] = null;
+    movimiento['plantillaIntervaloMeses'] = null;
+  }
+
+  Future<int?> preguntarAlcanceEdicionRecurrente(
+      Map<String, dynamic> original, {
+        required bool alDesactivar,
+      }) async {
+    if (!_esParteDeSerieRecurrente(original)) return 0;
 
     return showDialog<int>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Movimiento periódico'),
-          content: const Text(
-            '¿Quieres cambiar solo esta entrada o también las siguientes repeticiones?',
+      builder: (dialogContext) => AlertDialog(
+        title: Text(alDesactivar ? 'Quitar recurrencia' : 'Movimiento recurrente'),
+        content: Text(
+          alDesactivar
+              ? '¿Hasta dónde quieres detener la recurrencia?'
+              : '¿A qué entradas quieres aplicar los cambios?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, 0),
+            child: const Text('Solo esta entrada'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, 0),
-              child: const Text('Solo esta entrada'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(dialogContext, 1),
-              child: const Text('Esta y las siguientes'),
-            ),
-          ],
-        );
-      },
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, 1),
+            child: const Text('Esta y las siguientes'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, 2),
+            child: const Text('Toda la serie'),
+          ),
+        ],
+      ),
     );
+  }
+
+  void _copiarPlantilla(Map<String, dynamic> destino, Map<String, dynamic> fuente) {
+    const claves = [
+      'cantidad', 'cantidadOriginal', 'moneda', 'tipoCambio',
+      'tipoCambioPendiente', 'tipo', 'categoria', 'subcategoria', 'emoji',
+      'nota', 'fotoPath',
+    ];
+    for (final clave in claves) {
+      destino[clave] = fuente[clave];
+    }
+  }
+
+  void _guardarPlantillaEnRaiz(Map<String, dynamic> raiz, Map<String, dynamic> datos, int intervalo) {
+    raiz['recurrente'] = true;
+    raiz['recurrenceId'] = null;
+    raiz['intervaloMeses'] = intervalo;
+    raiz['plantillaCantidad'] = datos['cantidad'];
+    raiz['plantillaCantidadOriginal'] = datos['cantidadOriginal'];
+    raiz['plantillaMoneda'] = datos['moneda'];
+    raiz['plantillaTipoCambio'] = datos['tipoCambio'];
+    raiz['plantillaTipoCambioPendiente'] = datos['tipoCambioPendiente'];
+    raiz['plantillaCategoria'] = datos['categoria'];
+    raiz['plantillaSubcategoria'] = datos['subcategoria'];
+    raiz['plantillaEmoji'] = datos['emoji'];
+    raiz['plantillaNota'] = datos['nota'] ?? '';
+    raiz['plantillaFotoPath'] = datos['fotoPath'];
+    raiz['plantillaIntervaloMeses'] = intervalo;
+  }
+
+  Future<void> _confirmarBorradoTodaSerie(
+      Map<String, dynamic> movimiento,
+      String rootId,
+      DateTime fecha,
+      ) async {
+    final serie = _entradasSerie(rootId);
+    final pasadas = serie.where((m) {
+      final f = convertirFecha(m['fecha']?.toString() ?? '');
+      return f.year != 1900 && f.isBefore(fecha);
+    }).toList()
+      ..sort((a, b) => convertirFecha(b['fecha']?.toString() ?? '')
+          .compareTo(convertirFecha(a['fecha']?.toString() ?? '')));
+
+    final ejemplos = pasadas.take(3).map((m) {
+      final importe = ((m['cantidad'] as num?) ?? 0).toDouble().abs();
+      return '${m['fecha']} · ${m['categoria'] ?? ''} · ${formatearEuros(importe)}';
+    }).join('\n');
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Borrar toda la serie'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Se borrará este movimiento, todas las entradas futuras y todo el histórico de esta serie.'),
+            if (pasadas.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text('También se eliminarán entradas anteriores, por ejemplo:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Text(ejemplos),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Borrar toda la serie'),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true || !mounted) throw _CancelRecurrenceAction();
   }
 
   Future<void> editarMovimiento(Map<String, dynamic> original) async {
@@ -2380,8 +2066,6 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                       ),
                     ),
                     const SizedBox(height: 14),
-
-                    // Importe y moneda se editan juntos.
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -2428,13 +2112,10 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 8),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(
-                        Icons.calendar_today_outlined,
-                      ),
+                      leading: const Icon(Icons.calendar_today_outlined),
                       title: const Text('Fecha'),
                       subtitle: Text(fechaTexto(fecha)),
                       trailing: const Icon(Icons.chevron_right),
@@ -2450,7 +2131,6 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                         }
                       },
                     ),
-
                     const SizedBox(height: 4),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -2528,8 +2208,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                     SizedBox(
                       width: double.infinity,
                       child: TextButton(
-                        onPressed: () =>
-                            Navigator.pop(sheetContext),
+                        onPressed: () => Navigator.pop(sheetContext),
                         child: const Text('Cancelar'),
                       ),
                     ),
@@ -2570,49 +2249,162 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       return;
     }
 
-    int? alcance = 0;
     final nuevaRecurrente = resultado['recurrente'] == true;
-    final nuevoIntervalo = ((resultado['intervaloMeses'] as num?)?.toInt() ?? 1).clamp(1, 120);
-    if (original['recurrente'] == true && nuevaRecurrente) {
-      alcance = await preguntarAlcanceEdicionRecurrente(original);
-      if (alcance == null || !mounted) return;
-    }
+    final nuevoIntervalo = ((resultado['intervaloMeses'] as num?)?.toInt() ?? 1).clamp(1, 120).toInt();
+    final eraSerie = _esParteDeSerieRecurrente(original);
+    final alcance = eraSerie
+        ? await preguntarAlcanceEdicionRecurrente(original, alDesactivar: !nuevaRecurrente)
+        : 0;
+    if (alcance == null || !mounted) return;
 
     final valor = (resultado['cantidad'] as num).toDouble();
     final nuevaMoneda = resultado['moneda']?.toString() ?? 'EUR';
     final nuevaFecha = resultado['fecha'] as DateTime;
     final idOriginal = original['id']?.toString();
-    final indice = movimientos.indexWhere(
-          (m) => m['id']?.toString() == idOriginal,
-    );
+    final indice = movimientos.indexWhere((m) => m['id']?.toString() == idOriginal);
     if (indice == -1) return;
 
     double cambio = 1.0;
     bool pendiente = false;
-
     if (nuevaMoneda != 'EUR') {
-      cambio = await ServicioDivisas.obtenerCambioAEuro(
-        nuevaMoneda,
-        nuevaFecha,
-      );
+      cambio = await ServicioDivisas.obtenerCambioAEuro(nuevaMoneda, nuevaFecha);
       pendiente = cambio <= 0;
     }
 
-    final actualizado = Map<String, dynamic>.from(
-      movimientos[indice],
-    );
-
+    final actualizado = Map<String, dynamic>.from(movimientos[indice]);
     actualizado['cantidadOriginal'] = valor;
     actualizado['moneda'] = nuevaMoneda;
     actualizado['tipoCambio'] = cambio;
     actualizado['tipoCambioPendiente'] = pendiente;
-    actualizado['cantidad'] = pendiente
-        ? 0.0
-        : (nuevaMoneda == 'EUR' ? valor : valor / cambio);
+    actualizado['cantidad'] = pendiente ? 0.0 : (nuevaMoneda == 'EUR' ? valor : valor / cambio);
     actualizado['fecha'] = fechaTexto(nuevaFecha);
-    actualizado['fechaCreacion'] = fechaTexto(DateTime.now());
-    actualizado['recurrente'] = nuevaRecurrente;
-    actualizado['intervaloMeses'] = nuevoIntervalo;
+
+    final datosNuevos = Map<String, dynamic>.from(actualizado);
+    final rootId = eraSerie ? _idRaizSerieRecurrente(original) : '';
+    final fechaOriginal = convertirFecha(original['fecha']?.toString() ?? '');
+
+    if (!eraSerie) {
+      actualizado['recurrente'] = nuevaRecurrente;
+      actualizado['intervaloMeses'] = nuevaRecurrente ? nuevoIntervalo : 1;
+      movimientos[indice] = actualizado;
+      if (nuevaRecurrente) {
+        _guardarPlantillaEnRaiz(actualizado, datosNuevos, nuevoIntervalo);
+      } else {
+        _limpiarMetadatosRecurrencia(actualizado);
+      }
+    } else if (!nuevaRecurrente) {
+      // Desactivar recurrencia:
+      // 0 = solo este mes; 1 = este y siguientes; 2 = toda la serie.
+      if (alcance == 0) {
+        final raiz = _raizSerie(original);
+        final plantillaAnterior = raiz == null ? Map<String, dynamic>.from(original) : Map<String, dynamic>.from(raiz);
+        _limpiarMetadatosRecurrencia(actualizado);
+        movimientos[indice] = actualizado;
+        if (raiz != null && raiz['id']?.toString() == idOriginal) {
+          // La entrada raíz se convierte en movimiento normal, pero la serie
+          // continúa desde la siguiente ocurrencia existente.
+          final futuras = _entradasSerie(rootId)
+              .where((m) => m['id']?.toString() != idOriginal)
+              .where((m) => convertirFecha(m['fecha']?.toString() ?? '').isAfter(fechaOriginal))
+              .toList()
+            ..sort((a,b) => convertirFecha(a['fecha']?.toString() ?? '').compareTo(convertirFecha(b['fecha']?.toString() ?? '')));
+          if (futuras.isNotEmpty) {
+            final nuevaRaiz = futuras.first;
+            final nuevaRaizId = nuevaRaiz['id']?.toString();
+            _guardarPlantillaEnRaiz(nuevaRaiz, plantillaAnterior, (plantillaAnterior['intervaloMeses'] as num?)?.toInt() ?? nuevoIntervalo);
+            nuevaRaiz['recurrenceStartDate'] = nuevaRaiz['fecha'];
+            if (nuevaRaizId != null) {
+              for (final m in movimientos) {
+                if (m['recurrenceId']?.toString() == rootId && m['id']?.toString() != nuevaRaizId) {
+                  m['recurrenceId'] = nuevaRaizId;
+                }
+              }
+            }
+          }
+        }
+      } else if (alcance == 1) {
+        // Desde este mes en adelante deja de ser recurrente. Los meses
+        // anteriores siguen perteneciendo a la serie histórica.
+        for (final m in _entradasSerie(rootId)) {
+          final f = convertirFecha(m['fecha']?.toString() ?? '');
+          if (!f.isBefore(fechaOriginal)) _limpiarMetadatosRecurrencia(m);
+        }
+        _limpiarMetadatosRecurrencia(actualizado);
+        movimientos[indice] = actualizado;
+      } else {
+        for (final m in _entradasSerie(rootId)) {
+          _limpiarMetadatosRecurrencia(m);
+        }
+        _limpiarMetadatosRecurrencia(actualizado);
+        movimientos[indice] = actualizado;
+      }
+    } else {
+      final raiz = _raizSerie(original);
+      if (raiz == null) return;
+
+      if (alcance == 0) {
+        // Solo esta entrada: es una excepción. No se toca la plantilla ni
+        // las demás entradas.
+        final fechaVieja = fechaOriginal;
+        actualizado['recurrente'] = true;
+        actualizado['recurrenceId'] = rootId;
+        actualizado['intervaloMeses'] = (original['intervaloMeses'] as num?)?.toInt() ?? nuevoIntervalo;
+        movimientos[indice] = actualizado;
+        if (fechaTexto(nuevaFecha) != fechaTexto(fechaVieja)) {
+          final omitidas = List<String>.from(raiz['recurrenciasOmitidas'] ?? const []);
+          if (!omitidas.contains(fechaTexto(fechaVieja))) omitidas.add(fechaTexto(fechaVieja));
+          raiz['recurrenciasOmitidas'] = omitidas;
+        }
+      } else if (alcance == 1) {
+        // Esta y las siguientes: todo lo anterior queda intacto. La entrada
+        // seleccionada se convierte en el nuevo punto de partida y las
+        // futuras se regeneran desde ella.
+        if (idOriginal == rootId) {
+          // Si editamos la propia raíz no la eliminamos: simplemente se mueve
+          // y se actualiza su plantilla.
+          actualizado['recurrente'] = true;
+          actualizado['recurrenceId'] = null;
+          actualizado['intervaloMeses'] = nuevoIntervalo;
+          _guardarPlantillaEnRaiz(actualizado, datosNuevos, nuevoIntervalo);
+          actualizado['recurrenceStartDate'] = fechaTexto(nuevaFecha);
+          movimientos[indice] = actualizado;
+          movimientos.removeWhere((m) {
+            final pertenece = m['recurrenceId']?.toString() == rootId;
+            if (!pertenece) return false;
+            final f = convertirFecha(m['fecha']?.toString() ?? '');
+            return !f.isAfter(nuevaFecha);
+          });
+        } else {
+          movimientos.removeWhere((m) {
+            final f = convertirFecha(m['fecha']?.toString() ?? '');
+            final pertenece = m['recurrenceId']?.toString() == rootId;
+            return pertenece && !f.isBefore(fechaOriginal);
+          });
+          actualizado['recurrente'] = true;
+          actualizado['recurrenceId'] = rootId;
+          actualizado['intervaloMeses'] = nuevoIntervalo;
+          movimientos.add(actualizado);
+          _guardarPlantillaEnRaiz(raiz, datosNuevos, nuevoIntervalo);
+          raiz['recurrenceStartDate'] = fechaTexto(nuevaFecha);
+        }
+      } else {
+        // Toda la serie: se modifican todos los movimientos existentes y la
+        // plantilla. Las fechas históricas no se recalculan ni se borran.
+        for (var i = 0; i < movimientos.length; i++) {
+          final m = movimientos[i];
+          final pertenece = m['id']?.toString() == rootId || m['recurrenceId']?.toString() == rootId;
+          if (!pertenece) continue;
+          final copia = Map<String, dynamic>.from(m);
+          _copiarPlantilla(copia, datosNuevos);
+          copia['recurrente'] = true;
+          copia['recurrenceId'] = m['id']?.toString() == rootId ? null : rootId;
+          copia['intervaloMeses'] = nuevoIntervalo;
+          movimientos[i] = copia;
+        }
+        _guardarPlantillaEnRaiz(raiz, datosNuevos, nuevoIntervalo);
+        raiz['recurrenceStartDate'] = null;
+      }
+    }
 
     final prefs = await SharedPreferences.getInstance();
     final uso = prefs.getStringList('monedas_uso') ?? [];
@@ -2622,138 +2414,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     }
     await prefs.setStringList('monedas_uso', uso);
 
-    if (!mounted) return;
-
-    if (original['recurrente'] == true && !nuevaRecurrente) {
-      final recurrenceId =
-          original['recurrenceId']?.toString() ?? idOriginal;
-
-      actualizado['recurrente'] = false;
-      actualizado['recurrenceId'] = null;
-      actualizado['intervaloMeses'] = 1;
-      actualizado['plantillaCantidad'] = null;
-      actualizado['plantillaCantidadOriginal'] = null;
-      actualizado['plantillaMoneda'] = null;
-      actualizado['plantillaTipoCambio'] = null;
-      actualizado['plantillaTipoCambioPendiente'] = null;
-      actualizado['plantillaCategoria'] = null;
-      actualizado['plantillaSubcategoria'] = null;
-      actualizado['plantillaEmoji'] = null;
-      actualizado['plantillaNota'] = null;
-      actualizado['plantillaFotoPath'] = null;
-      actualizado['plantillaIntervaloMeses'] = null;
-      actualizado['recurrenciasOmitidas'] = <String>[];
-
-      movimientos[indice] = actualizado;
-
-      // Si se desactiva desde una repetición futura, también hay que
-      // detener la plantilla original; de lo contrario la app la volvería
-      // a generar al abrirse.
-      final raizIndice = movimientos.indexWhere(
-            (m) => m['id']?.toString() == recurrenceId,
-      );
-      if (raizIndice != -1 && raizIndice != indice) {
-        final raiz = Map<String, dynamic>.from(movimientos[raizIndice]);
-        raiz['recurrente'] = false;
-        raiz['recurrenceId'] = null;
-        raiz['intervaloMeses'] = 1;
-        raiz['recurrenciasOmitidas'] = <String>[];
-        raiz['plantillaCantidad'] = null;
-        raiz['plantillaCantidadOriginal'] = null;
-        raiz['plantillaMoneda'] = null;
-        raiz['plantillaTipoCambio'] = null;
-        raiz['plantillaTipoCambioPendiente'] = null;
-        raiz['plantillaCategoria'] = null;
-        raiz['plantillaSubcategoria'] = null;
-        raiz['plantillaEmoji'] = null;
-        raiz['plantillaNota'] = null;
-        raiz['plantillaFotoPath'] = null;
-        raiz['plantillaIntervaloMeses'] = null;
-        movimientos[raizIndice] = raiz;
-      }
-
-      movimientos.removeWhere((m) {
-        final mismo =
-            m['id']?.toString() == recurrenceId ||
-                m['recurrenceId']?.toString() == recurrenceId;
-        if (!mismo) return false;
-
-        final f = convertirFecha(m['fecha']?.toString() ?? '');
-        final esOtraEntrada =
-            m['id']?.toString() != idOriginal;
-        return esOtraEntrada && f.isAfter(nuevaFecha);
-      });
-    } else if (alcance == 1 && actualizado['recurrente'] == true) {
-      final recurrenceId = original['recurrenceId']?.toString() ?? idOriginal;
-      final hoy = DateTime.now();
-      final inicioFuturo = DateTime(hoy.year, hoy.month, 1);
-      final fechaSeleccionada = convertirFecha(original['fecha']?.toString() ?? '');
-      final fechaMinima = fechaSeleccionada.isBefore(inicioFuturo)
-          ? inicioFuturo
-          : fechaSeleccionada;
-
-      // La plantilla guarda el nuevo valor sin tocar las entradas pasadas.
-      final fuente = movimientos.firstWhere(
-            (m) => m['id']?.toString() == recurrenceId,
-        orElse: () => actualizado,
-      );
-      fuente['plantillaCantidad'] = actualizado['cantidad'];
-      fuente['plantillaCantidadOriginal'] = actualizado['cantidadOriginal'];
-      fuente['plantillaMoneda'] = actualizado['moneda'];
-      fuente['plantillaTipoCambio'] = actualizado['tipoCambio'];
-      fuente['plantillaTipoCambioPendiente'] = actualizado['tipoCambioPendiente'];
-      fuente['plantillaCategoria'] = actualizado['categoria'];
-      fuente['plantillaSubcategoria'] = actualizado['subcategoria'];
-      fuente['plantillaEmoji'] = actualizado['emoji'];
-      fuente['plantillaNota'] = actualizado['nota'] ?? '';
-      fuente['plantillaFotoPath'] = actualizado['fotoPath'];
-      fuente['plantillaIntervaloMeses'] = actualizado['intervaloMeses'] ?? 1;
-
-      // Si estamos editando la plantilla (la primera entrada de la serie),
-      // actualizamos también esa entrada si está dentro del periodo futuro.
-      if (original['recurrenceId'] == null) {
-        final fechaFuente = convertirFecha(original['fecha']?.toString() ?? '');
-        if (!fechaFuente.isBefore(fechaMinima)) {
-          movimientos[indice] = actualizado;
-        }
-      }
-
-      // Las repeticiones generadas se actualizan desde el mes elegido en adelante.
-      for (var i = 0; i < movimientos.length; i++) {
-        final m = movimientos[i];
-        if (m['recurrenceId']?.toString() == recurrenceId) {
-          final fechaM = convertirFecha(m['fecha']?.toString() ?? '');
-          if (!fechaM.isBefore(fechaMinima)) {
-            final copia = Map<String, dynamic>.from(actualizado);
-            copia['id'] = m['id'];
-            copia['recurrenceId'] = m['recurrenceId'];
-            copia['fecha'] = m['fecha'];
-            copia['fechaCreacion'] = actualizado['fechaCreacion'];
-            copia['hora'] = m['hora'];
-            // Las entradas generadas no son la plantilla.
-            copia['plantillaCantidad'] = null;
-            copia['plantillaCantidadOriginal'] = null;
-            copia['plantillaMoneda'] = null;
-            copia['plantillaTipoCambio'] = null;
-            copia['plantillaTipoCambioPendiente'] = null;
-            copia['plantillaCategoria'] = null;
-            copia['plantillaSubcategoria'] = null;
-            copia['plantillaEmoji'] = null;
-            copia['plantillaNota'] = null;
-            copia['plantillaFotoPath'] = null;
-            copia['plantillaIntervaloMeses'] = null;
-            movimientos[i] = copia;
-          }
-        }
-      }
-    } else {
-      movimientos[indice] = actualizado;
-    }
-
-    setState(() {
-      mesSeleccionado = nuevaFecha;
-    });
-
+    setState(() => mesSeleccionado = nuevaFecha);
     await guardarDatos();
     await generarRecurrentesPendientes();
   }
@@ -2922,15 +2583,13 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   Future<int?> preguntarAlcanceEliminacionRecurrente(
       Map<String, dynamic> movimiento,
       ) async {
-    if (movimiento['recurrente'] != true) return 0;
+    if (!_esParteDeSerieRecurrente(movimiento)) return 0;
 
     return showDialog<int>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Eliminar movimiento recurrente'),
-        content: const Text(
-          '¿Qué quieres borrar?',
-        ),
+        content: const Text('¿Qué quieres borrar?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, 1),
@@ -2954,182 +2613,127 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   }
 
   Future<void> eliminarMovimiento(Map<String, dynamic> movimiento) async {
-    final alcance = await preguntarAlcanceEliminacionRecurrente(movimiento);
-    if (alcance == null || !mounted) return;
-
-    if (movimiento['recurrente'] != true) {
+    final esSerie = _esParteDeSerieRecurrente(movimiento);
+    if (!esSerie) {
       final ok = await showDialog<bool>(
         context: context,
         builder: (c) => AlertDialog(
           title: const Text('Eliminar movimiento'),
           content: const Text('¿Seguro que quieres eliminar este movimiento?'),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: const Text('Eliminar'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
+            TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Eliminar')),
           ],
         ),
       );
       if (ok != true || !mounted) return;
+      setState(() => movimientos.removeWhere((m) => m['id']?.toString() == movimiento['id']?.toString()));
+      await guardarDatos();
+      return;
     }
 
-    final id = movimiento['id']?.toString();
-    final recurrenceId =
-        movimiento['recurrenceId']?.toString() ?? id;
-    final fecha = convertirFecha(
-      movimiento['fecha']?.toString() ?? '',
-    );
+    final alcance = await preguntarAlcanceEliminacionRecurrente(movimiento);
+    if (alcance == null || !mounted) return;
 
-    // Para una serie, el identificador estable es el ID de la plantilla.
-    final rootId = recurrenceId;
+    final id = movimiento['id']?.toString() ?? '';
+    final rootId = _idRaizSerieRecurrente(movimiento);
+    final fecha = convertirFecha(movimiento['fecha']?.toString() ?? '');
 
-    if (movimiento['recurrente'] == true && alcance == 3) {
-      final serie = movimientos.where((m) {
-        return m['id']?.toString() == rootId ||
-            m['recurrenceId']?.toString() == rootId;
-      }).toList();
-
-      final pasadas = serie
-          .where((m) {
-        final f = convertirFecha(m['fecha']?.toString() ?? '');
-        return f.isBefore(fecha);
-      })
-          .toList()
-        ..sort(
-              (a, b) => convertirFecha(
-            b['fecha']?.toString() ?? '',
-          ).compareTo(
-            convertirFecha(
-              a['fecha']?.toString() ?? '',
-            ),
-          ),
-        );
-
-      final ejemplos = pasadas
-          .take(3)
-          .map(
-            (m) =>
-        '${m['fecha']} · ${m['categoria']} · ${formatearEuros(((m['cantidad'] as num?) ?? 0).toDouble().abs())}',
-      )
-          .join('\n');
-
-      final confirmar = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Borrar toda la serie'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Se borrarán esta entrada, todas las futuras y también el histórico de esta serie.',
-              ),
-              if (pasadas.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                const Text(
-                  'También se eliminarán entradas anteriores, por ejemplo:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 6),
-                Text(ejemplos),
-              ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Borrar toda la serie'),
-            ),
-          ],
-        ),
-      );
-
-      if (confirmar != true || !mounted) return;
+    if (alcance == 3) {
+      try {
+        await _confirmarBorradoTodaSerie(movimiento, rootId, fecha);
+      } on _CancelRecurrenceAction {
+        return;
+      }
+      setState(() {
+        movimientos.removeWhere((m) => m['id']?.toString() == rootId || m['recurrenceId']?.toString() == rootId);
+      });
+      await guardarDatos();
+      return;
     }
 
-    setState(() {
-      if (movimiento['recurrente'] != true) {
-        movimientos.removeWhere(
-              (m) => m['id']?.toString() == id,
-        );
-      } else if (alcance == 1) {
-        // Solo esta entrada. La serie sigue activa, pero esta fecha queda
-        // registrada como omitida para que no vuelva a generarse.
-        final raiz = movimientos.cast<Map<String, dynamic>?>().firstWhere(
-              (m) => m?['id']?.toString() == rootId,
-          orElse: () => null,
-        );
+    if (alcance == 1) {
+      // Solo esta entrada: se elimina exclusivamente el mes seleccionado.
+      // Si la entrada seleccionada ES la raíz de la serie, no podemos
+      // eliminarla sin más porque entonces desaparecería la plantilla que
+      // genera las futuras. Promovemos la siguiente entrada futura a nueva
+      // raíz y mantenemos toda la serie enlazada a ella.
+      final raiz = _raizSerie(movimiento);
 
-        if (raiz != null) {
-          final omitidas = List<String>.from(
-            raiz['recurrenciasOmitidas'] ?? const [],
-          );
-          final fechaOmitida = fechaTexto(fecha);
-          if (!omitidas.contains(fechaOmitida)) {
-            omitidas.add(fechaOmitida);
+      if (raiz != null && raiz['id']?.toString() == id) {
+        final futuras = _entradasSerie(rootId)
+            .where((m) => m['id']?.toString() != id)
+            .where((m) {
+          final f = convertirFecha(m['fecha']?.toString() ?? '');
+          return f.year != 1900 && f.isAfter(fecha);
+        })
+            .toList()
+          ..sort((a, b) => convertirFecha(a['fecha']?.toString() ?? '')
+              .compareTo(convertirFecha(b['fecha']?.toString() ?? '')));
+
+        if (futuras.isNotEmpty) {
+          final nuevaRaiz = futuras.first;
+          final nuevaRaizId = nuevaRaiz['id']?.toString();
+
+          if (nuevaRaizId != null && nuevaRaizId.isNotEmpty) {
+            // La nueva raíz conserva la plantilla original de la serie.
+            final datosPlantilla = Map<String, dynamic>.from(raiz);
+            final intervalo =
+            ((raiz['intervaloMeses'] as num?)?.toInt() ?? 1).clamp(1, 120);
+            _guardarPlantillaEnRaiz(nuevaRaiz, datosPlantilla, intervalo);
+            nuevaRaiz['recurrenceStartDate'] = nuevaRaiz['fecha'];
+            nuevaRaiz['recurrenciasOmitidas'] = <String>[];
+
+            // Todas las demás entradas pasan a apuntar a la nueva raíz.
+            for (final m in movimientos) {
+              if (m['id']?.toString() == id) continue;
+              final pertenece = m['recurrenceId']?.toString() == rootId ||
+                  m['id']?.toString() == nuevaRaizId;
+              if (pertenece && m['id']?.toString() != nuevaRaizId) {
+                m['recurrenceId'] = nuevaRaizId;
+              }
+            }
+
+            // La entrada seleccionada (la antigua raíz) desaparece.
+            movimientos.removeWhere((m) => m['id']?.toString() == id);
           }
+        } else {
+          // Caso excepcional: no quedan futuras entradas. Eliminamos la raíz
+          // y no dejamos una plantilla huérfana que pueda regenerar la serie.
+          movimientos.removeWhere((m) => m['id']?.toString() == id);
+        }
+      } else {
+        // Una repetición normal no es la plantilla: simplemente se elimina
+        // esa fecha y se registra como omitida para que no vuelva a aparecer.
+        if (raiz != null) {
+          final omitidas =
+          List<String>.from(raiz['recurrenciasOmitidas'] ?? const []);
+          final f = fechaTexto(fecha);
+          if (!omitidas.contains(f)) omitidas.add(f);
           raiz['recurrenciasOmitidas'] = omitidas;
         }
-
-        movimientos.removeWhere(
-              (m) => m['id']?.toString() == id,
-        );
-      } else if (alcance == 2) {
-        // Esta y todas las siguientes. La serie queda detenida para que
-        // no se vuelvan a crear al abrir la aplicación.
-        final raiz = movimientos.cast<Map<String, dynamic>?>().firstWhere(
-              (m) => m?['id']?.toString() == rootId,
-          orElse: () => null,
-        );
-
-        if (raiz != null) {
-          raiz['recurrente'] = false;
-          raiz['intervaloMeses'] = 1;
-          raiz['recurrenceId'] = null;
-          raiz['plantillaCantidad'] = null;
-          raiz['plantillaCantidadOriginal'] = null;
-          raiz['plantillaMoneda'] = null;
-          raiz['plantillaTipoCambio'] = null;
-          raiz['plantillaTipoCambioPendiente'] = null;
-          raiz['plantillaCategoria'] = null;
-          raiz['plantillaSubcategoria'] = null;
-          raiz['plantillaEmoji'] = null;
-          raiz['plantillaNota'] = null;
-          raiz['plantillaFotoPath'] = null;
-          raiz['plantillaIntervaloMeses'] = null;
-        }
-
-        movimientos.removeWhere((m) {
-          final mismo =
-              m['id']?.toString() == rootId ||
-                  m['recurrenceId']?.toString() == rootId;
-          if (!mismo) return false;
-
-          final f = convertirFecha(m['fecha']?.toString() ?? '');
-          return !f.isBefore(fecha);
-        });
-      } else if (alcance == 3) {
-        // Toda la serie.
-        movimientos.removeWhere((m) {
-          return m['id']?.toString() == rootId ||
-              m['recurrenceId']?.toString() == rootId;
-        });
+        movimientos.removeWhere((m) => m['id']?.toString() == id);
       }
-    });
 
+      await guardarDatos();
+      await generarRecurrentesPendientes();
+      return;
+    }
+
+    // Esta y las siguientes: se corta la serie justo en el mes seleccionado.
+    // Todo lo anterior permanece exactamente como estaba.
+    final raiz = _raizSerie(movimiento);
+    if (raiz != null) {
+      _limpiarMetadatosRecurrencia(raiz);
+    }
+    setState(() {
+      movimientos.removeWhere((m) {
+        final pertenece = m['id']?.toString() == rootId || m['recurrenceId']?.toString() == rootId;
+        if (!pertenece) return false;
+        final f = convertirFecha(m['fecha']?.toString() ?? '');
+        return !f.isBefore(fecha);
+      });
+    });
     await guardarDatos();
   }
 
@@ -3542,10 +3146,14 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
 
     return Scaffold(
       appBar: AppBar(
-        title:
-        const Text(
-          'PastApp',
-        ),
+        title: const Text('PastApp'),
+        actions: [
+          IconButton(
+            tooltip: 'Buscar movimientos',
+            onPressed: abrirBuscadorMovimientos,
+            icon: const Icon(Icons.search),
+          ),
+        ],
       ),
       body:
       SingleChildScrollView(
@@ -3719,6 +3327,16 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                     Icons
                         .chevron_right,
                   ),
+                ),
+                const SizedBox(width: 4),
+                OutlinedButton(
+                  onPressed: () {
+                    final hoy = DateTime.now();
+                    setState(() {
+                      mesSeleccionado = DateTime(hoy.year, hoy.month, 1);
+                    });
+                  },
+                  child: const Text('Hoy'),
                 ),
               ],
             ),
@@ -4411,7 +4029,15 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: Image.asset('assets/icon.png', fit: BoxFit.cover),
+                    child: Image.asset(
+                      'assets/icon.png',
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Icon(
+                        Icons.account_balance_wallet_rounded,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        size: 24,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
@@ -4518,6 +4144,10 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
             onModoOscuroChanged: widget.onModoOscuroChanged,
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => abrirNuevoMovimiento(tipoInicial: 'Gasto'),
+        child: const Icon(Icons.add),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: paginaActual > 3 ? 0 : paginaActual,
@@ -5821,6 +5451,16 @@ class _CalendarioState
                     Icons
                         .chevron_right,
                   ),
+                ),
+                const SizedBox(width: 4),
+                OutlinedButton(
+                  onPressed: () {
+                    final hoy = DateTime.now();
+                    setState(() {
+                      mes = DateTime(hoy.year, hoy.month, 1);
+                    });
+                  },
+                  child: const Text('Hoy'),
                 ),
               ],
             ),
@@ -9370,6 +9010,205 @@ class _NuevaCorreccionPageState extends State<NuevaCorreccionPage> {
 // ============================================================
 // SELECTOR DE MES
 // ============================================================
+
+
+
+class BuscadorMovimientosPage extends StatefulWidget {
+  final List<Map<String, dynamic>> movimientos;
+  final Future<void> Function(Map<String, dynamic>) onMovimientoTap;
+  final Future<void> Function(Map<String, dynamic>) onMovimientoLongPress;
+
+  const BuscadorMovimientosPage({
+    super.key,
+    required this.movimientos,
+    required this.onMovimientoTap,
+    required this.onMovimientoLongPress,
+  });
+
+  @override
+  State<BuscadorMovimientosPage> createState() => _BuscadorMovimientosPageState();
+}
+
+class _BuscadorMovimientosPageState extends State<BuscadorMovimientosPage> {
+  final palabraController = TextEditingController();
+  final importeController = TextEditingController();
+  final importeHastaController = TextEditingController();
+  String? categoria;
+  String? subcategoria;
+  String modoImporte = 'Sin filtro';
+
+  @override
+  void dispose() {
+    palabraController.dispose();
+    importeController.dispose();
+    importeHastaController.dispose();
+    super.dispose();
+  }
+
+  double? numero(String texto) => double.tryParse(
+    texto.trim().replaceAll('€', '').replaceAll(' ', '').replaceAll(',', '.'),
+  );
+
+  List<String> get categorias {
+    final r = <String>{};
+    for (final m in widget.movimientos) {
+      final v = m['categoria']?.toString().trim();
+      if (v != null && v.isNotEmpty) r.add(v);
+    }
+    return r.toList()..sort();
+  }
+
+  List<String> get subcategoriasDisponibles {
+    final r = <String>{};
+    for (final m in widget.movimientos) {
+      if (categoria != null && m['categoria']?.toString() != categoria) continue;
+      final v = m['subcategoria']?.toString().trim();
+      if (v != null && v.isNotEmpty) r.add(v);
+    }
+    return r.toList()..sort();
+  }
+
+  bool coincide(Map<String, dynamic> m) {
+    final q = palabraController.text.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      final texto = [m['tipo'], m['categoria'], m['subcategoria'], m['nota'], m['fecha'], m['moneda']]
+          .where((v) => v != null).join(' ').toLowerCase();
+      if (!texto.contains(q)) return false;
+    }
+    if (categoria != null && m['categoria']?.toString() != categoria) return false;
+    if (subcategoria != null && m['subcategoria']?.toString() != subcategoria) return false;
+
+    final importe = ((m['cantidad'] as num?) ?? 0).toDouble().abs();
+    final x = numero(importeController.text);
+    final y = numero(importeHastaController.text);
+    if (modoImporte == 'Exacto' && (x == null || (importe - x).abs() > 0.005)) return false;
+    if (modoImporte == 'Mayor que' && (x == null || importe <= x)) return false;
+    if (modoImporte == 'Menor que' && (x == null || importe >= x)) return false;
+    if (modoImporte == 'Entre' && (x == null || y == null || importe < x || importe > y)) return false;
+    return true;
+  }
+
+  void limpiar() {
+    palabraController.clear();
+    importeController.clear();
+    importeHastaController.clear();
+    setState(() { categoria = null; subcategoria = null; modoImporte = 'Sin filtro'; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final resultados = widget.movimientos.where(coincide).toList()
+      ..sort(compararMovimientosPorFechaHoraDesc);
+    final subs = subcategoriasDisponibles;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Buscar movimientos'),
+        actions: [TextButton(onPressed: limpiar, child: const Text('Limpiar'))],
+      ),
+      body: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Column(children: [
+            TextField(
+              controller: palabraController,
+              decoration: const InputDecoration(
+                labelText: 'Palabra',
+                hintText: 'Concepto, nota, categoría o subcategoría',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: DropdownButtonFormField<String?>(
+                value: categoria,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Categoría', border: OutlineInputBorder()),
+                items: [const DropdownMenuItem<String?>(value: null, child: Text('Todas')), ...categorias.map((v) => DropdownMenuItem<String?>(value: v, child: Text(v)))],
+                onChanged: (v) => setState(() { categoria = v; subcategoria = null; }),
+              )),
+              const SizedBox(width: 10),
+              Expanded(child: DropdownButtonFormField<String?>(
+                value: subcategoria,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Subcategoría', border: OutlineInputBorder()),
+                items: [const DropdownMenuItem<String?>(value: null, child: Text('Todas')), ...subs.map((v) => DropdownMenuItem<String?>(value: v, child: Text(v)))],
+                onChanged: (v) => setState(() => subcategoria = v),
+              )),
+            ]),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              value: modoImporte,
+              decoration: const InputDecoration(labelText: 'Importe', border: OutlineInputBorder()),
+              items: const [
+                DropdownMenuItem(value: 'Sin filtro', child: Text('Sin filtro')),
+                DropdownMenuItem(value: 'Exacto', child: Text('Exacto')),
+                DropdownMenuItem(value: 'Mayor que', child: Text('Mayor que X')),
+                DropdownMenuItem(value: 'Menor que', child: Text('Menor que X')),
+                DropdownMenuItem(value: 'Entre', child: Text('Entre X e Y')),
+              ],
+              onChanged: (v) => setState(() => modoImporte = v ?? 'Sin filtro'),
+            ),
+            if (modoImporte != 'Sin filtro') ...[
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(child: TextField(
+                  controller: importeController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(labelText: modoImporte == 'Entre' ? 'Desde X' : 'Importe X', prefixText: '€ ', border: const OutlineInputBorder()),
+                  onChanged: (_) => setState(() {}),
+                )),
+                if (modoImporte == 'Entre') ...[
+                  const SizedBox(width: 10),
+                  Expanded(child: TextField(
+                    controller: importeHastaController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: 'Hasta Y', prefixText: '€ ', border: OutlineInputBorder()),
+                    onChanged: (_) => setState(() {}),
+                  )),
+                ],
+              ]),
+            ],
+          ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Align(alignment: Alignment.centerLeft, child: Text('${resultados.length} movimiento${resultados.length == 1 ? '' : 's'}', style: const TextStyle(fontWeight: FontWeight.w600))),
+        ),
+        const Divider(height: 1),
+        Expanded(child: resultados.isEmpty
+            ? const Center(child: Text('No hay movimientos que coincidan.'))
+            : ListView.separated(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+          itemCount: resultados.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 4),
+          itemBuilder: (_, i) {
+            final m = resultados[i];
+            final gasto = m['tipo'] == 'Gasto';
+            final ajuste = m['tipo'] == 'Ajuste';
+            final cantidad = ((m['cantidad'] as num?) ?? 0).toDouble();
+            final importe = ajuste
+                ? '${cantidad >= 0 ? '+' : ''}${formatearEuros(cantidad.abs())}'
+                : '${gasto ? '-' : '+'}${formatearEuros(cantidad.abs())}';
+            return Card(child: ListTile(
+              leading: CircleAvatar(child: Text(m['emoji']?.toString() ?? (gasto ? '💸' : '💰'))),
+              title: Text(m['categoria']?.toString() ?? m['tipo'].toString()),
+              subtitle: Text([
+                m['fecha']?.toString() ?? '',
+                if (m['subcategoria']?.toString().trim().isNotEmpty ?? false) m['subcategoria'].toString(),
+                if (m['nota']?.toString().trim().isNotEmpty ?? false) '📝',
+              ].join(' · ')),
+              trailing: Text(importe, style: TextStyle(fontWeight: FontWeight.bold, color: ajuste ? Colors.orange : (gasto ? Colors.red : Colors.green))),
+              onTap: () => widget.onMovimientoTap(m),
+              onLongPress: () => widget.onMovimientoLongPress(m),
+            ));
+          },
+        )),
+      ]),
+    );
+  }
+}
 
 class SelectorMes extends StatefulWidget {
   final DateTime inicial;
