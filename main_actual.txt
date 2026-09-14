@@ -6,7 +6,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:file_picker/file_picker.dart';
@@ -140,16 +139,6 @@ const List<Map<String, dynamic>> categoriasGastosIniciales = [
     'ocultaAlAnadir': false,
   },
   {
-    'nombre': 'Otros préstamos',
-    'emoji': '💶',
-    'subcategorias': <String>[],
-  },
-  {
-    'nombre': 'Compra inmuebles',
-    'emoji': '🏢',
-    'subcategorias': <String>['Amortización hipoteca', 'Compra piso'],
-  },
-  {
     'nombre': 'Compras',
     'emoji': '💳',
     'subcategorias': <String>[],
@@ -160,34 +149,14 @@ const List<Map<String, dynamic>> categoriasGastosIniciales = [
     'subcategorias': <String>['Gym', 'Suplementos', 'Otros'],
   },
   {
-    'id': 'cat_gastos_hipotecas',
     'nombre': 'Hipotecas',
     'emoji': '🏦',
-    'subcategorias': <String>['Bordador', 'Afán', 'Fco Carrera', 'Otros'],
+    'subcategorias': <String>['Afán', 'Fco Carrera', 'Otros'],
   },
   {
-    'id': 'cat_gastos_pisos',
     'nombre': 'Pisos',
     'emoji': '🏠',
-    'subcategorias': <String>['Bordador', 'Afán', 'Fco Carrera', 'Otros'],
-    'subcategoriaIds': <String, String>{
-      'Bordador': 'sub_pisos_bordador',
-      'Afán': 'sub_pisos_afan',
-      'Fco Carrera': 'sub_pisos_fco_carrera',
-      'Otros': 'sub_pisos_otros',
-    },
-    'subsubcategorias': <String, List<String>>{
-      'Bordador': ['IBI', 'Comunidad', 'Electrodomésticos', 'Seguro hogar', 'Obras', 'Mantenimiento', 'Otros'],
-      'Afán': ['IBI', 'Comunidad', 'Electrodomésticos', 'Seguro hogar', 'Obras', 'Mantenimiento', 'Otros'],
-      'Fco Carrera': ['IBI', 'Comunidad', 'Electrodomésticos', 'Seguro hogar', 'Obras', 'Mantenimiento', 'Otros'],
-      'Otros': ['Seguros'],
-    },
-    'subsubcategoriaIds': <String, Map<String, String>>{
-      'Bordador': {'IBI': 'ss_pisos_bordador_ibi', 'Comunidad': 'ss_pisos_bordador_comunidad', 'Electrodomésticos': 'ss_pisos_bordador_electrodomesticos', 'Seguro hogar': 'ss_pisos_bordador_seguro_hogar', 'Obras': 'ss_pisos_bordador_obras', 'Mantenimiento': 'ss_pisos_bordador_mantenimiento', 'Otros': 'ss_pisos_bordador_otros'},
-      'Afán': {'IBI': 'ss_pisos_afan_ibi', 'Comunidad': 'ss_pisos_afan_comunidad', 'Electrodomésticos': 'ss_pisos_afan_electrodomesticos', 'Seguro hogar': 'ss_pisos_afan_seguro_hogar', 'Obras': 'ss_pisos_afan_obras', 'Mantenimiento': 'ss_pisos_afan_mantenimiento', 'Otros': 'ss_pisos_afan_otros'},
-      'Fco Carrera': {'IBI': 'ss_pisos_fco_carrera_ibi', 'Comunidad': 'ss_pisos_fco_carrera_comunidad', 'Electrodomésticos': 'ss_pisos_fco_carrera_electrodomesticos', 'Seguro hogar': 'ss_pisos_fco_carrera_seguro_hogar', 'Obras': 'ss_pisos_fco_carrera_obras', 'Mantenimiento': 'ss_pisos_fco_carrera_mantenimiento', 'Otros': 'ss_pisos_fco_carrera_otros'},
-      'Otros': {'Seguros': 'ss_pisos_otros_seguros'},
-    },
+    'subcategorias': <String>['Obras', 'Mantenimiento', 'Electrodomésticos', 'Comunidad', 'Seguro hogar', 'IBI', 'Otros'],
   },
   {
     'nombre': 'Salidas',
@@ -233,14 +202,8 @@ const List<Map<String, dynamic>> categoriasIngresosIniciales = [
     'subcategorias': <String>[],
   },
   {
-    'id': 'cat_ingresos_alquileres',
     'nombre': 'Alquileres',
     'emoji': '🏘️',
-    'subcategorias': <String>['Bordador', 'Afán', 'Fco Carrera'],
-  },
-  {
-    'nombre': 'Otros ingresos',
-    'emoji': '💰',
     'subcategorias': <String>[],
   },
   {
@@ -252,1267 +215,6 @@ const List<Map<String, dynamic>> categoriasIngresosIniciales = [
     'nombre': 'Miscelánea',
     'emoji': '💰',
     'subcategorias': <String>[],
-  },
-];
-
-const List<Map<String, dynamic>> historicosInicialesPastApp = [
-  {
-    'anio': 2022, 'mes': 1, 'nombreMes': 'Enero',
-    'salario': 2077.00, 'pieris': 0.00, 'hipoteca': 715.37, 'alquiler': 0.00,
-    'totalIngresos': 3397.00, 'gastosFijos': 1340.58, 'gastosHistoricos': 1566.42, 'totalGastos': 2907.00, 'ahorro': 490.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 490.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2077.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 650.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 670.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 374.12},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 341.25},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Pisos', 'subcategoria': 'Seguros', 'importe': 261.03, 'nota': 'Seguro de vida'},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2022, 'mes': 2, 'nombreMes': 'Febrero',
-    'salario': 2077.00, 'pieris': 0.00, 'hipoteca': 715.37, 'alquiler': 0.00,
-    'totalIngresos': 3717.00, 'gastosFijos': 1079.55, 'gastosHistoricos': 2037.45, 'totalGastos': 3117.00, 'ahorro': 600.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 600.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2077.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 650.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 374.12},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 341.25},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2022, 'mes': 3, 'nombreMes': 'Marzo',
-    'salario': 2077.00, 'pieris': 0.00, 'hipoteca': 715.37, 'alquiler': 0.00,
-    'totalIngresos': 3717.00, 'gastosFijos': 1079.55, 'gastosHistoricos': 1930.45, 'totalGastos': 3010.00, 'ahorro': 707.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 707.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2077.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 650.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 374.12},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 341.25},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2022, 'mes': 4, 'nombreMes': 'Abril',
-    'salario': 2077.00, 'pieris': 0.00, 'hipoteca': 715.37, 'alquiler': 600.00,
-    'totalIngresos': 3717.00, 'gastosFijos': 1679.55, 'gastosHistoricos': 3009.45, 'totalGastos': 4689.00, 'ahorro': -972.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': -972.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2077.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 650.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 374.12},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 341.25},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 600.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2022, 'mes': 5, 'nombreMes': 'Mayo',
-    'salario': 2077.00, 'pieris': 450.00, 'hipoteca': 715.37, 'alquiler': 600.00,
-    'totalIngresos': 4167.00, 'gastosFijos': 1679.55, 'gastosHistoricos': 4627.45, 'totalGastos': 6307.00, 'ahorro': -2140.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': -2140.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2077.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 650.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 450.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 374.12},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 341.25},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 600.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2022, 'mes': 6, 'nombreMes': 'Junio',
-    'salario': 2077.00, 'pieris': 1946.00, 'hipoteca': 706.13, 'alquiler': 600.00,
-    'totalIngresos': 5913.00, 'gastosFijos': 2288.01, 'gastosHistoricos': 574.99, 'totalGastos': 2863.00, 'ahorro': 3050.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 3050.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2077.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 650.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 1946.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 374.12},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 600.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI Bordador', 'importe': 116.63},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI Afán', 'importe': 239.72},
-      {'categoria': 'Pisos', 'subcategoria': 'Seguro Afán', 'importe': 261.35},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2022, 'mes': 7, 'nombreMes': 'Julio',
-    'salario': 2077.00, 'pieris': 2000.00, 'hipoteca': 706.13, 'alquiler': 600.00,
-    'totalIngresos': 5967.00, 'gastosFijos': 1670.31, 'gastosHistoricos': 2326.69, 'totalGastos': 3997.00, 'ahorro': 1970.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 1970.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2077.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 650.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 2000.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 374.12},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 600.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2022, 'mes': 8, 'nombreMes': 'Agosto',
-    'salario': 2077.00, 'pieris': 2400.00, 'hipoteca': 706.13, 'alquiler': 600.00,
-    'totalIngresos': 6367.00, 'gastosFijos': 1670.31, 'gastosHistoricos': 1401.69, 'totalGastos': 3072.00, 'ahorro': 3295.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 3295.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2077.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 650.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 2400.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 374.12},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 600.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2022, 'mes': 9, 'nombreMes': 'Septiembre',
-    'salario': 2077.00, 'pieris': 4000.00, 'hipoteca': 706.13, 'alquiler': 600.00,
-    'totalIngresos': 7967.00, 'gastosFijos': 1670.31, 'gastosHistoricos': 1461.69, 'totalGastos': 3132.00, 'ahorro': 4835.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 4835.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2077.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 650.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 4000.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 374.12},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 600.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2022, 'mes': 10, 'nombreMes': 'Octubre',
-    'salario': 2077.00, 'pieris': 3600.00, 'hipoteca': 706.13, 'alquiler': 600.00,
-    'totalIngresos': 7567.00, 'gastosFijos': 1670.31, 'gastosHistoricos': 4510.69, 'totalGastos': 6181.00, 'ahorro': 1386.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 1386.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2077.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 650.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 3600.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 374.12},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 600.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2022, 'mes': 11, 'nombreMes': 'Noviembre',
-    'salario': 3285.00, 'pieris': 1900.00, 'hipoteca': 706.13, 'alquiler': 600.00,
-    'totalIngresos': 7075.00, 'gastosFijos': 1670.31, 'gastosHistoricos': 1505.69, 'totalGastos': 3176.00, 'ahorro': 3899.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 3899.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3285.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 650.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 1900.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 374.12},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 600.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2022, 'mes': 12, 'nombreMes': 'Diciembre',
-    'salario': 2610.00, 'pieris': 2200.00, 'hipoteca': 706.13, 'alquiler': 600.00,
-    'totalIngresos': 6700.00, 'gastosFijos': 2175.94, 'gastosHistoricos': 5914.06, 'totalGastos': 8090.00, 'ahorro': -1390.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': -1390.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2610.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 650.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 2200.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 374.12},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 600.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI Bordador', 'importe': 121.23},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI Afán', 'importe': 249.18},
-      {'categoria': 'Pisos', 'subcategoria': 'Seguro Bordador', 'importe': 135.22},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2023, 'mes': 1, 'nombreMes': 'Enero',
-    'salario': 2136.00, 'pieris': 1350.00, 'hipoteca': 705.88, 'alquiler': 600.00,
-    'totalIngresos': 5376.00, 'gastosFijos': 1922.84, 'gastosHistoricos': 2594.16, 'totalGastos': 4517.00, 'ahorro': 859.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 859.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2136.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 650.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 1350.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 373.87},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 600.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Seguros', 'importe': 252.78, 'nota': 'Seguro de vida'},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2023, 'mes': 2, 'nombreMes': 'Febrero',
-    'salario': 2136.00, 'pieris': 1670.00, 'hipoteca': 899.05, 'alquiler': 600.00,
-    'totalIngresos': 5696.00, 'gastosFijos': 2263.23, 'gastosHistoricos': 2071.77, 'totalGastos': 4335.00, 'ahorro': 1361.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 1361.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2136.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 650.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 1670.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 567.04},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 600.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Bordador', 'importe': 400.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2023, 'mes': 3, 'nombreMes': 'Marzo',
-    'salario': 2136.00, 'pieris': 3300.00, 'hipoteca': 899.05, 'alquiler': 600.00,
-    'totalIngresos': 7326.00, 'gastosFijos': 1863.23, 'gastosHistoricos': 1777.77, 'totalGastos': 3641.00, 'ahorro': 3685.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 3685.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2136.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 650.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 3300.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 567.04},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 600.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2023, 'mes': 4, 'nombreMes': 'Abril',
-    'salario': 2136.00, 'pieris': 4588.00, 'hipoteca': 899.05, 'alquiler': 650.00,
-    'totalIngresos': 8614.00, 'gastosFijos': 4978.23, 'gastosHistoricos': 3285.77, 'totalGastos': 8264.00, 'ahorro': 350.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 350.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2136.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 650.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 4588.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 567.04},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 650.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Bordador', 'importe': 465.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Afán', 'importe': 2600.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2023, 'mes': 5, 'nombreMes': 'Mayo',
-    'salario': 2136.00, 'pieris': 4850.00, 'hipoteca': 899.05, 'alquiler': 650.00,
-    'totalIngresos': 8926.00, 'gastosFijos': 2214.56, 'gastosHistoricos': 2901.67, 'totalGastos': 5116.23, 'ahorro': 3809.77, 'inversionInmobiliaria': 12139.77, 'ahorroSinInversion': 15949.54,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2136.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 4850.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 567.04},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 650.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Seguro Afán', 'importe': 301.33},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Amortización hipoteca', 'importe': 12139.77},
-    ],
-  },
-  {
-    'anio': 2023, 'mes': 6, 'nombreMes': 'Junio',
-    'salario': 2136.00, 'pieris': 4500.00, 'hipoteca': 899.05, 'alquiler': 650.00,
-    'totalIngresos': 8576.00, 'gastosFijos': 2269.58, 'gastosHistoricos': 2618.15, 'totalGastos': 4887.73, 'ahorro': 3688.27, 'inversionInmobiliaria': 2190.64, 'ahorroSinInversion': 5878.91,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2136.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 4500.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 567.04},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 650.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI Bordador', 'importe': 116.63},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI Afán', 'importe': 239.72},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Amortización hipoteca', 'importe': 2190.64},
-    ],
-  },
-  {
-    'anio': 2023, 'mes': 7, 'nombreMes': 'Julio',
-    'salario': 2136.00, 'pieris': 6870.00, 'hipoteca': 899.05, 'alquiler': 650.00,
-    'totalIngresos': 10946.00, 'gastosFijos': 1913.23, 'gastosHistoricos': 3795.40, 'totalGastos': 5708.63, 'ahorro': 5237.37, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 5237.37,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2136.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 6870.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 567.04},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 650.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2023, 'mes': 8, 'nombreMes': 'Agosto',
-    'salario': 2136.00, 'pieris': 3300.00, 'hipoteca': 899.05, 'alquiler': 650.00,
-    'totalIngresos': 7156.00, 'gastosFijos': 1963.23, 'gastosHistoricos': 3164.03, 'totalGastos': 5127.26, 'ahorro': 2028.74, 'inversionInmobiliaria': 2523.74, 'ahorroSinInversion': 4552.48,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2136.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 770.00},
-      {'categoria': 'Pieris', 'importe': 3300.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 567.04},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 650.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Bordador', 'importe': 50.00},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Amortización hipoteca', 'importe': 2523.74},
-    ],
-  },
-  {
-    'anio': 2023, 'mes': 9, 'nombreMes': 'Septiembre',
-    'salario': 3275.29, 'pieris': 3300.00, 'hipoteca': 899.05, 'alquiler': 650.00,
-    'totalIngresos': 8515.29, 'gastosFijos': 1913.23, 'gastosHistoricos': 3794.06, 'totalGastos': 5707.29, 'ahorro': 2808.00, 'inversionInmobiliaria': 3130.00, 'ahorroSinInversion': 5938.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3275.29},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 3300.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 567.04},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 650.00},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Amortización hipoteca', 'importe': 3130.00},
-    ],
-  },
-  {
-    'anio': 2023, 'mes': 10, 'nombreMes': 'Octubre',
-    'salario': 0.00, 'pieris': 1400.00, 'hipoteca': 899.05, 'alquiler': 650.00,
-    'totalIngresos': 3340.00, 'gastosFijos': 1963.23, 'gastosHistoricos': 2744.77, 'totalGastos': 4708.00, 'ahorro': -1368.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': -1368.00,
-    'ingresos': [
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 1400.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 567.04},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 650.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Afán', 'importe': 50.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2023, 'mes': 11, 'nombreMes': 'Noviembre',
-    'salario': 0.00, 'pieris': 2420.00, 'hipoteca': 899.05, 'alquiler': 650.00,
-    'totalIngresos': 4360.00, 'gastosFijos': 1913.23, 'gastosHistoricos': 2096.71, 'totalGastos': 4009.94, 'ahorro': 350.06, 'inversionInmobiliaria': 2020.06, 'ahorroSinInversion': 2370.12,
-    'ingresos': [
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 2420.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 567.04},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 178.73},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 650.00},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Amortización hipoteca', 'importe': 2020.06},
-    ],
-  },
-  {
-    'anio': 2023, 'mes': 12, 'nombreMes': 'Diciembre',
-    'salario': 3297.00, 'pieris': 1450.00, 'hipoteca': 899.05, 'alquiler': 650.00,
-    'totalIngresos': 6687.00, 'gastosFijos': 2455.11, 'gastosHistoricos': 4176.89, 'totalGastos': 6632.00, 'ahorro': 55.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 55.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3297.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 1450.00},
-      {'categoria': 'Otros ingresos', 'importe': 250.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 567.04},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 180.19},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 650.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI Bordador', 'importe': 122.46},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI Afán', 'importe': 251.71},
-      {'categoria': 'Pisos', 'subcategoria': 'Seguro Bordador', 'importe': 166.25},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2024, 'mes': 1, 'nombreMes': 'Enero',
-    'salario': 2595.00, 'pieris': -200.00, 'hipoteca': 899.05, 'alquiler': 650.00,
-    'totalIngresos': 5085.00, 'gastosFijos': 2265.50, 'gastosHistoricos': 1444.50, 'totalGastos': 3710.00, 'ahorro': 1375.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 1375.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2595.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': -200.00},
-      {'categoria': 'Otros ingresos', 'importe': 1000.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 567.04},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 180.19},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 650.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Afán', 'importe': 50.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Seguros', 'importe': 300.81, 'nota': 'Seguro de vida'},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2024, 'mes': 2, 'nombreMes': 'Febrero',
-    'salario': 3840.00, 'pieris': 1800.00, 'hipoteca': 911.67, 'alquiler': 650.00,
-    'totalIngresos': 7830.00, 'gastosFijos': 1927.31, 'gastosHistoricos': 3882.69, 'totalGastos': 5810.00, 'ahorro': 2020.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 2020.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3840.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 1800.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 579.66},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 180.19},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 650.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2024, 'mes': 3, 'nombreMes': 'Marzo',
-    'salario': 3300.00, 'pieris': 3550.00, 'hipoteca': 927.01, 'alquiler': 920.00,
-    'totalIngresos': 9040.00, 'gastosFijos': 2212.65, 'gastosHistoricos': 3327.35, 'totalGastos': 5540.00, 'ahorro': 3500.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 3500.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3300.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 3550.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 595.00},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 180.19},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 920.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2024, 'mes': 4, 'nombreMes': 'Abril',
-    'salario': 3177.00, 'pieris': 4100.00, 'hipoteca': 927.01, 'alquiler': 920.00,
-    'totalIngresos': 9467.00, 'gastosFijos': 2212.65, 'gastosHistoricos': 8554.35, 'totalGastos': 10767.00, 'ahorro': -1300.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': -1300.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3177.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 4100.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 595.00},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 180.19},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 920.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2024, 'mes': 5, 'nombreMes': 'Mayo',
-    'salario': 3280.00, 'pieris': 4000.00, 'hipoteca': 927.01, 'alquiler': 920.00,
-    'totalIngresos': 9470.00, 'gastosFijos': 2892.65, 'gastosHistoricos': 5647.35, 'totalGastos': 8540.00, 'ahorro': 930.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 930.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3280.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 4000.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 595.00},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 180.19},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 920.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI Bordador', 'importe': 115.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI Afán', 'importe': 237.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Seguro Afán', 'importe': 328.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2024, 'mes': 6, 'nombreMes': 'Junio',
-    'salario': 3216.00, 'pieris': 5100.00, 'hipoteca': 927.01, 'alquiler': 920.00,
-    'totalIngresos': 10506.00, 'gastosFijos': 2312.65, 'gastosHistoricos': 5043.35, 'totalGastos': 7356.00, 'ahorro': 3150.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 3150.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3216.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 5100.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 595.00},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 180.19},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 920.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Bordador', 'importe': 100.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2024, 'mes': 7, 'nombreMes': 'Julio',
-    'salario': 3200.00, 'pieris': 4300.00, 'hipoteca': 927.01, 'alquiler': 920.00,
-    'totalIngresos': 9690.00, 'gastosFijos': 2312.65, 'gastosHistoricos': 4642.35, 'totalGastos': 6955.00, 'ahorro': 2735.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 2735.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3200.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 4300.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 595.00},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 180.19},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 920.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Afán', 'importe': 100.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2024, 'mes': 8, 'nombreMes': 'Agosto',
-    'salario': 3200.00, 'pieris': 3800.00, 'hipoteca': 927.01, 'alquiler': 920.00,
-    'totalIngresos': 9190.00, 'gastosFijos': 2262.65, 'gastosHistoricos': 2307.35, 'totalGastos': 4570.00, 'ahorro': 4620.00, 'inversionInmobiliaria': 14550.00, 'ahorroSinInversion': 19170.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3200.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 3800.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 595.00},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI atraso', 'importe': 180.19},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 920.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Bordador', 'importe': 50.00},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Amortización hipoteca', 'importe': 14550.00},
-    ],
-  },
-  {
-    'anio': 2024, 'mes': 9, 'nombreMes': 'Septiembre',
-    'salario': 5000.00, 'pieris': 3300.00, 'hipoteca': 927.01, 'alquiler': 920.00,
-    'totalIngresos': 10490.00, 'gastosFijos': 2032.46, 'gastosHistoricos': 4092.54, 'totalGastos': 6125.00, 'ahorro': 4365.00, 'inversionInmobiliaria': 5540.00, 'ahorroSinInversion': 9905.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 5000.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 3300.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 595.00},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 920.00},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Amortización hipoteca', 'importe': 5540.00},
-    ],
-  },
-  {
-    'anio': 2024, 'mes': 10, 'nombreMes': 'Octubre',
-    'salario': 3770.00, 'pieris': 4950.00, 'hipoteca': 927.01, 'alquiler': 920.00,
-    'totalIngresos': 10910.00, 'gastosFijos': 2082.46, 'gastosHistoricos': 1526.54, 'totalGastos': 3609.00, 'ahorro': 7301.00, 'inversionInmobiliaria': 9361.00, 'ahorroSinInversion': 16662.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3770.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 4950.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 595.00},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 920.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Afán', 'importe': 50.00},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Amortización hipoteca', 'importe': 9361.00},
-    ],
-  },
-  {
-    'anio': 2024, 'mes': 11, 'nombreMes': 'Noviembre',
-    'salario': 4977.00, 'pieris': 5000.00, 'hipoteca': 927.01, 'alquiler': 920.00,
-    'totalIngresos': 12167.00, 'gastosFijos': 2032.46, 'gastosHistoricos': 2874.54, 'totalGastos': 4907.00, 'ahorro': 7260.00, 'inversionInmobiliaria': 8410.00, 'ahorroSinInversion': 15670.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 4977.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 5000.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 595.00},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 920.00},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Amortización hipoteca', 'importe': 8410.00},
-    ],
-  },
-  {
-    'anio': 2024, 'mes': 12, 'nombreMes': 'Diciembre',
-    'salario': 3500.00, 'pieris': 2200.00, 'hipoteca': 927.01, 'alquiler': 920.00,
-    'totalIngresos': 7890.00, 'gastosFijos': 2722.20, 'gastosHistoricos': 637.80, 'totalGastos': 3360.00, 'ahorro': 4530.00, 'inversionInmobiliaria': 6530.00, 'ahorroSinInversion': 11060.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3500.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 2200.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 595.00},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 920.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI Bordador', 'importe': 121.23},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI Afán', 'importe': 249.18},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Afán', 'importe': 150.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Seguro Bordador', 'importe': 169.33},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Amortización hipoteca', 'importe': 6530.00},
-    ],
-  },
-  {
-    'anio': 2025, 'mes': 1, 'nombreMes': 'Enero',
-    'salario': 3691.00, 'pieris': 2400.00, 'hipoteca': 927.01, 'alquiler': 920.00,
-    'totalIngresos': 8281.00, 'gastosFijos': 2472.46, 'gastosHistoricos': 165.54, 'totalGastos': 2638.00, 'ahorro': 5643.00, 'inversionInmobiliaria': 4625.00, 'ahorroSinInversion': 10268.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3691.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 2400.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 595.00},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 920.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Afán', 'importe': 115.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Seguros', 'importe': 325.00, 'nota': 'Seguro de vida'},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Amortización hipoteca', 'importe': 4625.00},
-    ],
-  },
-  {
-    'anio': 2025, 'mes': 2, 'nombreMes': 'Febrero',
-    'salario': 4386.00, 'pieris': 3650.00, 'hipoteca': 911.01, 'alquiler': 920.00,
-    'totalIngresos': 10726.00, 'gastosFijos': 2016.46, 'gastosHistoricos': 5059.54, 'totalGastos': 7076.00, 'ahorro': 3650.00, 'inversionInmobiliaria': 4948.00, 'ahorroSinInversion': 8598.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 4386.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 3650.00},
-      {'categoria': 'Otros ingresos', 'importe': 1000.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 579.00},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 920.00},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Amortización hipoteca', 'importe': 4948.00},
-    ],
-  },
-  {
-    'anio': 2025, 'mes': 3, 'nombreMes': 'Marzo',
-    'salario': 4121.00, 'pieris': -3000.00, 'hipoteca': 911.01, 'alquiler': 970.00,
-    'totalIngresos': 3311.00, 'gastosFijos': 2396.46, 'gastosHistoricos': 1494.54, 'totalGastos': 3891.00, 'ahorro': -580.00, 'inversionInmobiliaria': 6180.00, 'ahorroSinInversion': 5600.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 4121.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': -3000.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 579.00},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 970.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Afán', 'importe': 330.00},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Amortización hipoteca', 'importe': 6180.00},
-    ],
-  },
-  {
-    'anio': 2025, 'mes': 4, 'nombreMes': 'Abril',
-    'salario': 4470.00, 'pieris': 4440.00, 'hipoteca': 911.01, 'alquiler': 970.00,
-    'totalIngresos': 11100.00, 'gastosFijos': 2386.46, 'gastosHistoricos': 4552.54, 'totalGastos': 6939.00, 'ahorro': 4161.00, 'inversionInmobiliaria': 2121.00, 'ahorroSinInversion': 6282.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 4470.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 4440.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 579.00},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 970.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Afán', 'importe': 320.00},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Amortización hipoteca', 'importe': 2121.00},
-    ],
-  },
-  {
-    'anio': 2025, 'mes': 5, 'nombreMes': 'Mayo',
-    'salario': 6017.00, 'pieris': 7400.00, 'hipoteca': 911.01, 'alquiler': 970.00,
-    'totalIngresos': 15607.00, 'gastosFijos': 2426.46, 'gastosHistoricos': -1186.95, 'totalGastos': 1239.51, 'ahorro': 14367.49, 'inversionInmobiliaria': 7677.49, 'ahorroSinInversion': 22044.98,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 6017.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 7400.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 579.00},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 970.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Seguro Afán', 'importe': 360.00},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Amortización hipoteca', 'importe': 7677.49},
-    ],
-  },
-  {
-    'anio': 2025, 'mes': 6, 'nombreMes': 'Junio',
-    'salario': 2487.00, 'pieris': 5720.00, 'hipoteca': 911.01, 'alquiler': 970.00,
-    'totalIngresos': 10397.00, 'gastosFijos': 4419.23, 'gastosHistoricos': 3933.77, 'totalGastos': 8353.00, 'ahorro': 2044.00, 'inversionInmobiliaria': 4559.00, 'ahorroSinInversion': 6603.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2487.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 990.00},
-      {'categoria': 'Pieris', 'importe': 5720.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Bordador', 'importe': 579.00},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 970.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI Bordador', 'importe': 115.46},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI Afán', 'importe': 237.31},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Afán', 'importe': 2000.00},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Amortización hipoteca', 'importe': 4559.00},
-    ],
-  },
-  {
-    'anio': 2025, 'mes': 7, 'nombreMes': 'Julio',
-    'salario': 3300.00, 'pieris': 4350.00, 'hipoteca': 332.01, 'alquiler': 970.00,
-    'totalIngresos': 9860.00, 'gastosFijos': 1650.46, 'gastosHistoricos': 2779.54, 'totalGastos': 4430.00, 'ahorro': 5430.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 5430.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3300.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 1010.00},
-      {'categoria': 'Pieris', 'importe': 4350.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 233.00},
-      {'categoria': 'Otros préstamos', 'importe': 115.45},
-      {'categoria': 'Alquiler', 'importe': 970.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2025, 'mes': 8, 'nombreMes': 'Agosto',
-    'salario': 6027.28, 'pieris': 6000.00, 'hipoteca': 332.01, 'alquiler': 970.00,
-    'totalIngresos': 14237.28, 'gastosFijos': 3080.37, 'gastosHistoricos': 4696.91, 'totalGastos': 7777.28, 'ahorro': 6460.00, 'inversionInmobiliaria': 1545.00, 'ahorroSinInversion': 8005.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 6027.28},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 1010.00},
-      {'categoria': 'Pieris', 'importe': 6000.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 233.00},
-      {'categoria': 'Otros préstamos', 'importe': 1545.36},
-      {'categoria': 'Alquiler', 'importe': 970.00},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Amortización hipoteca', 'importe': 1545.00},
-    ],
-  },
-  {
-    'anio': 2025, 'mes': 9, 'nombreMes': 'Septiembre',
-    'salario': 3204.45, 'pieris': 8700.00, 'hipoteca': 332.01, 'alquiler': 970.00,
-    'totalIngresos': 14114.45, 'gastosFijos': 1535.01, 'gastosHistoricos': 3209.44, 'totalGastos': 4744.45, 'ahorro': 9370.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 9370.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3204.45},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 1010.00},
-      {'categoria': 'Pieris', 'importe': 8700.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 233.00},
-      {'categoria': 'Alquiler', 'importe': 970.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2025, 'mes': 10, 'nombreMes': 'Octubre',
-    'salario': 3300.00, 'pieris': 4028.00, 'hipoteca': 332.01, 'alquiler': 970.00,
-    'totalIngresos': 9538.00, 'gastosFijos': 1685.01, 'gastosHistoricos': 3395.99, 'totalGastos': 5081.00, 'ahorro': 4457.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 4457.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3300.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 1010.00},
-      {'categoria': 'Pieris', 'importe': 4028.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 233.00},
-      {'categoria': 'Alquiler', 'importe': 970.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Afán', 'importe': 150.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2025, 'mes': 11, 'nombreMes': 'Noviembre',
-    'salario': 5565.00, 'pieris': 4900.00, 'hipoteca': 332.01, 'alquiler': 970.00,
-    'totalIngresos': 12675.00, 'gastosFijos': 3507.89, 'gastosHistoricos': 3354.11, 'totalGastos': 6862.00, 'ahorro': 5813.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 5813.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 5565.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 700.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 1010.00},
-      {'categoria': 'Pieris', 'importe': 4900.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 233.00},
-      {'categoria': 'Alquiler', 'importe': 970.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Bordador', 'importe': 1904.88},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Afán', 'importe': 68.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2025, 'mes': 12, 'nombreMes': 'Diciembre',
-    'salario': 2920.00, 'pieris': 950.00, 'hipoteca': 332.01, 'alquiler': 970.00,
-    'totalIngresos': 5730.00, 'gastosFijos': 1924.30, 'gastosHistoricos': 4255.70, 'totalGastos': 6180.00, 'ahorro': -450.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': -450.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2920.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 350.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 1010.00},
-      {'categoria': 'Pieris', 'importe': 950.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Alquiler', 'importe': 970.00},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI Bordador', 'importe': 121.23},
-      {'categoria': 'Pisos', 'subcategoria': 'IBI Afán', 'importe': 249.18},
-      {'categoria': 'Pisos', 'subcategoria': 'Seguro Bordador', 'importe': 181.88},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2026, 'mes': 1, 'nombreMes': 'Enero',
-    'salario': 4200.00, 'pieris': 6000.00, 'hipoteca': 332.01, 'alquiler': 970.00,
-    'totalIngresos': 11210.00, 'gastosFijos': 6223.40, 'gastosHistoricos': 2046.60, 'totalGastos': 8270.00, 'ahorro': 2940.00, 'inversionInmobiliaria': 5000.00, 'ahorroSinInversion': 7940.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 4200.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 1010.00},
-      {'categoria': 'Pieris', 'importe': 6000.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Alquiler', 'importe': 970.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Bordador', 'importe': 4500.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Seguros', 'importe': 351.39, 'nota': 'Seguro de vida'},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Compra piso', 'importe': 5000.00},
-    ],
-  },
-  {
-    'anio': 2026, 'mes': 2, 'nombreMes': 'Febrero',
-    'salario': 4374.00, 'pieris': 2100.00, 'hipoteca': 332.01, 'alquiler': 970.00,
-    'totalIngresos': 9464.00, 'gastosFijos': 6067.01, 'gastosHistoricos': 5966.99, 'totalGastos': 12034.00, 'ahorro': -2570.00, 'inversionInmobiliaria': 9200.00, 'ahorroSinInversion': 6630.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 4374.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 890.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 2100.00},
-      {'categoria': 'Pieris', 'importe': 2100.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros', 'importe': 40.00, 'nota': 'Trastero'},
-      {'categoria': 'Alquiler', 'importe': 970.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Bordador', 'importe': 4500.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Seguro Afán', 'importe': 155.00},
-    ],
-    'inversiones': [
-      {'categoria': 'Compra inmuebles', 'subcategoria': 'Compra piso', 'importe': 9200.00},
-    ],
-  },
-  {
-    'anio': 2026, 'mes': 3, 'nombreMes': 'Marzo',
-    'salario': 3633.00, 'pieris': 2400.00, 'hipoteca': 332.01, 'alquiler': 970.00,
-    'totalIngresos': 8233.00, 'gastosFijos': 1412.01, 'gastosHistoricos': 1950.99, 'totalGastos': 3363.00, 'ahorro': 4870.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 4870.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3633.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 890.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 1010.00},
-      {'categoria': 'Pieris', 'importe': 2400.00},
-      {'categoria': 'Otros ingresos', 'importe': 300.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros', 'importe': 40.00, 'nota': 'Trastero'},
-      {'categoria': 'Alquiler', 'importe': 970.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2026, 'mes': 4, 'nombreMes': 'Abril',
-    'salario': 3200.00, 'pieris': 5300.00, 'hipoteca': 332.01, 'alquiler': 970.00,
-    'totalIngresos': 11900.00, 'gastosFijos': 1412.01, 'gastosHistoricos': 39712.99, 'totalGastos': 41125.00, 'ahorro': -29225.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': -29225.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3200.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 890.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 1010.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Fco Carrera', 'importe': 1200.00},
-      {'categoria': 'Pieris', 'importe': 5300.00},
-      {'categoria': 'Otros ingresos', 'importe': 300.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros', 'importe': 40.00, 'nota': 'Trastero'},
-      {'categoria': 'Alquiler', 'importe': 970.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2026, 'mes': 5, 'nombreMes': 'Mayo',
-    'salario': 3900.00, 'pieris': 12500.00, 'hipoteca': 751.90, 'alquiler': 1000.00,
-    'totalIngresos': 19700.00, 'gastosFijos': 2416.90, 'gastosHistoricos': 7383.10, 'totalGastos': 9800.00, 'ahorro': 9900.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 9900.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3900.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 890.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 1010.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Fco Carrera', 'importe': 900.00},
-      {'categoria': 'Pieris', 'importe': 12500.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Fco Carrera', 'importe': 419.89},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Fco Carrera', 'importe': 50.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros', 'importe': 40.00, 'nota': 'Trastero'},
-      {'categoria': 'Alquiler', 'importe': 1000.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Afán', 'importe': 60.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Fco Carrera', 'importe': 65.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Seguro Afán', 'importe': 380.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2026, 'mes': 6, 'nombreMes': 'Junio',
-    'salario': 3370.00, 'pieris': 11000.00, 'hipoteca': 751.90, 'alquiler': 1000.00,
-    'totalIngresos': 17670.00, 'gastosFijos': 2101.90, 'gastosHistoricos': 7243.10, 'totalGastos': 9345.00, 'ahorro': 8325.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 8325.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3370.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 890.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 1010.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Fco Carrera', 'importe': 900.00},
-      {'categoria': 'Pieris', 'importe': 11000.00},
-      {'categoria': 'Otros ingresos', 'importe': 500.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Fco Carrera', 'importe': 419.89},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Fco Carrera', 'importe': 50.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros', 'importe': 40.00, 'nota': 'Trastero'},
-      {'categoria': 'Alquiler', 'importe': 1000.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros Bordador', 'importe': 190.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2026, 'mes': 7, 'nombreMes': 'Julio',
-    'salario': 3300.00, 'pieris': 7500.00, 'hipoteca': 751.90, 'alquiler': 1000.00,
-    'totalIngresos': 13900.00, 'gastosFijos': 1911.90, 'gastosHistoricos': 6613.10, 'totalGastos': 8525.00, 'ahorro': 5375.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 5375.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 3300.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 890.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 1010.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Fco Carrera', 'importe': 900.00},
-      {'categoria': 'Pieris', 'importe': 7500.00},
-      {'categoria': 'Otros ingresos', 'importe': 300.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Fco Carrera', 'importe': 419.89},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 70.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Fco Carrera', 'importe': 50.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros', 'importe': 40.00, 'nota': 'Trastero'},
-      {'categoria': 'Alquiler', 'importe': 1000.00},
-    ],
-    'inversiones': [
-    ],
-  },
-  {
-    'anio': 2026, 'mes': 8, 'nombreMes': 'Agosto',
-    'salario': 2714.00, 'pieris': 4700.00, 'hipoteca': 751.90, 'alquiler': 1000.00,
-    'totalIngresos': 10514.00, 'gastosFijos': 2074.90, 'gastosHistoricos': 2014.10, 'totalGastos': 4089.00, 'ahorro': 6425.00, 'inversionInmobiliaria': 0.00, 'ahorroSinInversion': 6425.00,
-    'ingresos': [
-      {'categoria': 'Salario', 'importe': 2714.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Bordador', 'importe': 890.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Afán', 'importe': 1010.00},
-      {'categoria': 'Alquileres', 'subcategoria': 'Fco Carrera', 'importe': 900.00},
-      {'categoria': 'Pieris', 'importe': 4700.00},
-      {'categoria': 'Otros ingresos', 'importe': 300.00},
-    ],
-    'gastos': [
-      {'categoria': 'Hipotecas', 'subcategoria': 'Fco Carrera', 'importe': 419.89},
-      {'categoria': 'Hipotecas', 'subcategoria': 'Afán', 'importe': 332.01},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Bordador', 'importe': 233.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Comunidad Fco Carrera', 'importe': 50.00},
-      {'categoria': 'Pisos', 'subcategoria': 'Otros', 'importe': 40.00, 'nota': 'Trastero'},
-      {'categoria': 'Alquiler', 'importe': 1000.00},
-    ],
-    'inversiones': [
-    ],
   },
 ];
 
@@ -1889,169 +591,6 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   // CARGAR
   // ==========================================================
 
-  void normalizarIdsCategoriasYDatos() {
-    String nuevoId() => DateTime.now().microsecondsSinceEpoch.toString();
-
-    void normalizarLista(List<Map<String, dynamic>> lista, String tipo) {
-      for (final c in lista) {
-        c['id'] = (c['id']?.toString().trim().isNotEmpty == true) ? c['id'].toString() : nuevoId();
-        final subs = List<String>.from(c['subcategorias'] ?? []);
-        final ids = <String, String>{};
-        final antiguos = Map<String, dynamic>.from(c['subcategoriaIds'] ?? {});
-        for (final sub in subs) {
-          final existente = antiguos[sub]?.toString();
-          ids[sub] = (existente != null && existente.isNotEmpty) ? existente : '${c['id']}_sub_${nuevoId()}';
-        }
-        c['subcategoriaIds'] = ids;
-        final ss = <String, List<String>>{};
-        final ssIds = <String, Map<String, String>>{};
-        final antiguosSs = Map<String, dynamic>.from(c['subsubcategorias'] ?? {});
-        final antiguosSsIds = Map<String, dynamic>.from(c['subsubcategoriaIds'] ?? {});
-        for (final sub in subs) {
-          final nombres = List<String>.from(antiguosSs[sub] ?? const []);
-          ss[sub] = nombres;
-          final mapa = <String, String>{};
-          final antiguosMapa = Map<String, dynamic>.from(antiguosSsIds[sub] ?? {});
-          for (final nombre in nombres) {
-            final existente = antiguosMapa[nombre]?.toString();
-            mapa[nombre] = (existente != null && existente.isNotEmpty) ? existente : '${ids[sub]}_ss_${nuevoId()}';
-          }
-          ssIds[sub] = mapa;
-        }
-        c['subsubcategorias'] = ss;
-        c['subsubcategoriaIds'] = ssIds;
-        if (c['nombre']?.toString() == 'Pisos') {
-          final oldSubs = List<String>.from(c['subcategorias'] ?? []);
-          final oldIds = Map<String, dynamic>.from(c['subcategoriaIds'] ?? {});
-          final oldSs = Map<String, dynamic>.from(c['subsubcategorias'] ?? {});
-          final oldSsIds = Map<String, dynamic>.from(c['subsubcategoriaIds'] ?? {});
-          final properties = <String>['Bordador', 'Afán', 'Fco Carrera', 'Otros'];
-          final standardTypes = <String>['IBI', 'Comunidad', 'Electrodomésticos', 'Seguro hogar', 'Obras', 'Mantenimiento', 'Otros'];
-          final propertyAliases = <String, String>{
-            'Cerro': 'Afán', 'Iglesias': 'Fco Carrera',
-          };
-          final newSubs = <String>[];
-          final newIds = <String, String>{};
-          final newSs = <String, List<String>>{};
-          final newSsIds = <String, Map<String, String>>{};
-          for (final property in properties) {
-            final id = oldIds[property]?.toString() ?? '${c['id']}_sub_${property.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_')}';
-            newSubs.add(property);
-            newIds[property] = id;
-            final existing = <String>[];
-            for (final key in oldSs.keys) {
-              if (key == property || propertyAliases[key] == property) {
-                existing.addAll(List<String>.from(oldSs[key] ?? const []));
-              }
-            }
-            final types = property == 'Otros'
-                ? <String>{'IBI atraso', 'Seguros', 'Otros', ...existing}.toList()
-                : <String>{...standardTypes, ...existing}.toList();
-            newSs[property] = types;
-            final typeIds = <String, String>{};
-            for (final typeName in types) {
-              String? existingId;
-              for (final key in oldSsIds.keys) {
-                final map = Map<String, dynamic>.from(oldSsIds[key] ?? {});
-                if (map[typeName] != null) existingId = map[typeName].toString();
-              }
-              typeIds[typeName] = existingId ?? '${id}_ss_${typeName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_')}';
-            }
-            newSsIds[property] = typeIds;
-          }
-          c['subcategorias'] = newSubs;
-          c['subcategoriaIds'] = newIds;
-          c['subsubcategorias'] = newSs;
-          c['subsubcategoriaIds'] = newSsIds;
-        }
-        c['archivada'] = c['archivada'] == true;
-        c['ocultaAlAnadir'] = c['ocultaAlAnadir'] == true;
-      }
-    }
-
-    normalizarLista(categoriasGastos, 'Gasto');
-    normalizarLista(categoriasIngresos, 'Ingreso');
-
-    Map<String, dynamic>? encontrar(String tipo, String nombre) {
-      final lista = tipo == 'Ingreso' ? categoriasIngresos : categoriasGastos;
-      for (final c in lista) {
-        if (c['nombre']?.toString() == nombre) return c;
-      }
-      return null;
-    }
-
-    void normalizarMovimiento(Map<String, dynamic> m) {
-      final tipo = m['tipo']?.toString();
-      if (tipo != 'Ingreso' && tipo != 'Gasto') return;
-      final c = encontrar(tipo!, m['categoria']?.toString() ?? '');
-      if (c == null) return;
-      m['categoriaId'] = c['id'];
-      final sub = m['subcategoria']?.toString();
-      if (sub != null && sub.isNotEmpty) {
-        final ids = Map<String, String>.from(c['subcategoriaIds'] ?? {});
-        m['subcategoriaId'] = ids[sub];
-        final ssMap = Map<String, dynamic>.from(c['subsubcategorias'] ?? {});
-        final ssIdsMap = Map<String, dynamic>.from(c['subsubcategoriaIds'] ?? {});
-        final ss = m['subsubcategoria']?.toString();
-        if (ss != null && ss.isNotEmpty) {
-          m['subsubcategoriaId'] = Map<String, String>.from(ssIdsMap[sub] ?? {})[ss];
-        }
-        // Migración de los antiguos nombres específicos de Pisos a 3 niveles.
-        if (c['nombre'] == 'Pisos' && (m['subsubcategoriaId'] == null)) {
-          final legacy = <String, List<String>>{
-            'Comunidad Bordador': ['Bordador', 'Comunidad'], 'IBI Bordador': ['Bordador', 'IBI'], 'Otros Bordador': ['Bordador', 'Otros'], 'Seguro Bordador': ['Bordador', 'Seguro hogar'],
-            'Comunidad Afán': ['Afán', 'Comunidad'], 'IBI Afán': ['Afán', 'IBI'], 'Otros Afán': ['Afán', 'Otros'], 'Seguro Afán': ['Afán', 'Seguro hogar'],
-            'Comunidad Fco Carrera': ['Fco Carrera', 'Comunidad'], 'IBI Fco Carrera': ['Fco Carrera', 'IBI'], 'Otros Fco Carrera': ['Fco Carrera', 'Otros'], 'Seguro Fco Carrera': ['Fco Carrera', 'Seguro hogar'],
-            'IBI atraso': ['Otros', 'IBI atraso'], 'Seguros': ['Otros', 'Seguros'], 'Seguro Vida': ['Otros', 'Seguros'],
-          };
-          final mapped = legacy[sub];
-          if (mapped != null) {
-            final newSub = mapped[0], newSs = mapped[1];
-            m['subcategoria'] = newSub;
-            m['subcategoriaId'] = ids[newSub];
-            m['subsubcategoria'] = newSs;
-            m['subsubcategoriaId'] = Map<String, String>.from(ssIdsMap[newSub] ?? {})[newSs];
-          }
-          if (sub == 'Seguros' && m['nota']?.toString().toLowerCase() == 'seguro de vida') {
-            m['subcategoria'] = 'Otros';
-            m['subcategoriaId'] = ids['Otros'];
-            m['subsubcategoria'] = 'Seguros';
-            m['subsubcategoriaId'] = Map<String, String>.from(ssIdsMap['Otros'] ?? {})['Seguros'];
-            m['nota'] = 'Seguro de vida';
-          }
-        }
-      }
-    }
-    for (final m in movimientos) normalizarMovimiento(m);
-
-    // Los datos descargados de Firestore pueden contener mapas inmutables.
-    // Nunca modificamos esos mapas directamente: reconstruimos los históricos
-    // como mapas/listas mutables antes de normalizarlos.
-    historicos = historicos.map((historicoOriginal) {
-      final historico = Map<String, dynamic>.from(historicoOriginal);
-
-      for (final key in ['ingresos', 'gastos']) {
-        final listaOriginal = historico[key];
-        if (listaOriginal is List) {
-          final listaMutable = <Map<String, dynamic>>[];
-
-          for (final item in listaOriginal) {
-            if (item is Map) {
-              final mapa = Map<String, dynamic>.from(item);
-              mapa['tipo'] = key == 'ingresos' ? 'Ingreso' : 'Gasto';
-              normalizarMovimiento(mapa);
-              listaMutable.add(mapa);
-            }
-          }
-
-          historico[key] = listaMutable;
-        }
-      }
-
-      return historico;
-    }).toList();
-  }
-
   Future<void> cargarDatos() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -2183,8 +722,6 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
         movimiento['tipoCambioPendiente'] = movimiento['tipoCambioPendiente'] == true;
       }
 
-      normalizarIdsCategoriasYDatos();
-
       // Las recurrencias tienen una plantilla separada de las entradas históricas.
       // Esto permite cambiar el sueldo desde un mes en adelante sin modificar meses pasados.
       for (final movimiento in movimientos) {
@@ -2234,46 +771,6 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
           }
         }
       }
-      // Garantiza las categorías nuevas necesarias para los históricos.
-      void asegurarCategoria(
-          List<Map<String, dynamic>> lista,
-          String nombre,
-          String emoji,
-          List<String> subcategorias,
-          ) {
-        final existentes = lista.where((c) => c['nombre']?.toString() == nombre).toList();
-        if (existentes.isEmpty) {
-          lista.add({
-            'nombre': nombre,
-            'emoji': emoji,
-            'subcategorias': List<String>.from(subcategorias),
-            'archivada': false,
-            'ocultaAlAnadir': false,
-          });
-        } else {
-          final c = existentes.first;
-          c['emoji'] = emoji;
-          final subsActuales = List<String>.from(c['subcategorias'] ?? []);
-          for (final sub in subcategorias) {
-            if (!subsActuales.contains(sub)) subsActuales.add(sub);
-          }
-          c['subcategorias'] = subsActuales;
-          c['archivada'] = false;
-        }
-      }
-
-      asegurarCategoria(categoriasGastos, 'Otros préstamos', '💶', []);
-      asegurarCategoria(categoriasGastos, 'Compra inmuebles', '🏢', [
-        'Amortización hipoteca',
-        'Compra piso',
-      ]);
-      asegurarCategoria(categoriasIngresos, 'Otros ingresos', '💰', []);
-      asegurarCategoria(categoriasIngresos, 'Alquileres', '🏘️', [
-        'Bordador',
-        'Afán',
-        'Fco Carrera',
-      ]);
-
       for (final categoria in [...categoriasGastos, ...categoriasIngresos]) {
         categoria['ocultaAlAnadir'] = categoria['ocultaAlAnadir'] == true;
       }
@@ -2299,32 +796,8 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
         final nombreCategoria = categoria['nombre']?.toString();
         final subcategoriasSolicitadas = <String, List<String>>{
           'Deporte': ['Gym', 'Suplementos', 'Otros'],
-          'Hipotecas': ['Bordador', 'Afán', 'Fco Carrera', 'Otros'],
-          'Pisos': [
-            'Obras',
-            'Mantenimiento',
-            'Electrodomésticos',
-            'Comunidad',
-            'Seguro hogar',
-            'IBI',
-            'Otros',
-            'Comunidad Bordador',
-            'Comunidad Afán',
-            'Comunidad Fco Carrera',
-            'IBI Bordador',
-            'IBI Afán',
-            'IBI Fco Carrera',
-            'IBI atraso',
-            'Otros Bordador',
-            'Otros Afán',
-            'Otros Fco Carrera',
-            'Seguro Bordador',
-            'Seguro Afán',
-            'Seguro Fco Carrera',
-            'Seguros',
-          ],
-          'Alquileres': ['Bordador', 'Afán', 'Fco Carrera'],
-          'Compra inmuebles': ['Amortización hipoteca', 'Compra piso'],
+          'Hipotecas': ['Afán', 'Fco Carrera', 'Otros'],
+          'Pisos': ['Obras', 'Mantenimiento', 'Electrodomésticos', 'Comunidad', 'Seguro hogar', 'IBI', 'Otros'],
           'Salidas': ['Cafeterías', 'Comidas', 'Beber y salir', 'Cititas', 'Otros'],
           'Transporte': ['Taxis', 'Abono', 'Otros'],
           'Viajes': ['Vuelos', 'Hoteles', 'Tours / entradas', 'Otros'],
@@ -2401,16 +874,6 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
           historicos = [];
         }
       }
-
-      // La app parte sin movimientos: cargamos los históricos del Excel
-      // una sola vez como datos históricos separados.
-      if (historicos.isEmpty) {
-        historicos = historicosInicialesPastApp
-            .map((h) => Map<String, dynamic>.from(h))
-            .toList();
-      }
-
-      normalizarIdsCategoriasYDatos();
 
       if (patrimoniosGuardados != null) {
         try {
@@ -3096,7 +1559,6 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
             'tipo': recurrente['tipo'],
             'categoria': recurrente['plantillaCategoria'] ?? recurrente['categoria'],
             'subcategoria': recurrente['plantillaSubcategoria'] ?? recurrente['subcategoria'],
-            'subsubcategoria': recurrente['plantillaSubsubcategoria'] ?? recurrente['subsubcategoria'],
             'emoji': recurrente['plantillaEmoji'] ?? recurrente['emoji'],
             'fecha': fechaTexto(fecha),
             'fechaCreacion':
@@ -3155,10 +1617,6 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   Future<void> mostrarDetalleMovimiento(
       Map<String, dynamic> movimiento,
       ) async {
-    if (movimiento['esHistorico'] == true) {
-      await editarMovimientoHistorico(movimiento);
-      return;
-    }
     if (movimiento['tipo'] == 'Ajuste') return;
 
     final tipo = movimiento['tipo']?.toString() ?? '';
@@ -4492,209 +2950,6 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   // MOVIMIENTOS DEL MES
   // ==========================================================
 
-  // Los históricos se muestran en Inicio y Calendario como movimientos virtuales
-  // con fecha 1 de cada mes. Siguen almacenados en `historicos`, separados de
-  // los movimientos normales, pero se pueden editar desde cualquier vista.
-  List<Map<String, dynamic>> movimientosHistoricosDelMes(DateTime mes) {
-    final resultado = <Map<String, dynamic>>[];
-    for (final h in historicos) {
-      final anio = (h['anio'] as num?)?.toInt();
-      final mesHistorico = (h['mes'] as num?)?.toInt();
-      if (anio != mes.year || mesHistorico != mes.month) continue;
-
-      for (final clave in ['ingresos', 'gastos']) {
-        final lista = h[clave];
-        if (lista is! List) continue;
-        for (var i = 0; i < lista.length; i++) {
-          final itemRaw = lista[i];
-          if (itemRaw is! Map) continue;
-          final item = Map<String, dynamic>.from(itemRaw);
-          item['tipo'] = clave == 'ingresos' ? 'Ingreso' : 'Gasto';
-          item['cantidad'] = ((item['importe'] as num?) ?? (item['cantidad'] as num?) ?? 0).toDouble();
-          item['fecha'] = fechaTexto(DateTime(mes.year, mes.month, 1));
-          item['fechaCreacion'] = item['fecha'];
-          item['esHistorico'] = true;
-          item['historicoAnio'] = anio;
-          item['historicoMes'] = mesHistorico;
-          item['historicoTipo'] = clave;
-          item['historicoIndice'] = i;
-          item['id'] = 'historico_${anio}_${mesHistorico}_${clave}_$i';
-          resultado.add(item);
-        }
-      }
-    }
-    resultado.sort(compararMovimientosPorFechaHoraDesc);
-    return resultado;
-  }
-
-  List<Map<String, dynamic>> todosLosMovimientosConHistoricos() {
-    final resultado = <Map<String, dynamic>>[...movimientos];
-    for (final h in historicos) {
-      final anio = (h['anio'] as num?)?.toInt();
-      final mesHistorico = (h['mes'] as num?)?.toInt();
-      if (anio == null || mesHistorico == null) continue;
-      resultado.addAll(movimientosHistoricosDelMes(DateTime(anio, mesHistorico, 1)));
-    }
-    return resultado;
-  }
-
-  Future<void> editarMovimientoHistorico(Map<String, dynamic> original) async {
-    final anio = (original['historicoAnio'] as num?)?.toInt();
-    final mes = (original['historicoMes'] as num?)?.toInt();
-    final indice = (original['historicoIndice'] as num?)?.toInt();
-    final clave = original['historicoTipo']?.toString();
-    if (anio == null || mes == null || indice == null || (clave != 'ingresos' && clave != 'gastos')) return;
-
-    final historico = historicos.cast<Map<String, dynamic>?>().firstWhere(
-          (h) => h?['anio']?.toString() == anio.toString() && h?['mes']?.toString() == mes.toString(),
-      orElse: () => null,
-    );
-    if (historico == null) return;
-    final lista = historico[clave];
-    if (lista is! List || indice >= lista.length || lista[indice] is! Map) return;
-
-    final originalItem = Map<String, dynamic>.from(lista[indice] as Map);
-    final tipo = clave == 'ingresos' ? 'Ingreso' : 'Gasto';
-    final cantidadController = TextEditingController(
-      text: (((originalItem['importe'] as num?) ?? (originalItem['cantidad'] as num?) ?? 0).toDouble()).toStringAsFixed(2),
-    );
-    String? categoria = originalItem['categoria']?.toString();
-    String? subcategoria = originalItem['subcategoria']?.toString();
-    String? subsubcategoria = originalItem['subsubcategoria']?.toString();
-    final notaController = TextEditingController(text: originalItem['nota']?.toString() ?? '');
-
-    final categorias = tipo == 'Gasto' ? categoriasGastos : categoriasIngresos;
-    if (categoria == null || !categorias.any((c) => c['nombre']?.toString() == categoria)) {
-      categoria = categorias.isNotEmpty ? categorias.first['nombre']?.toString() : null;
-    }
-
-    String? primerSub(String? cat) {
-      final c = categorias.cast<Map<String, dynamic>?>().firstWhere((x) => x?['nombre']?.toString() == cat, orElse: () => null);
-      final subs = List<String>.from(c?['subcategorias'] ?? []);
-      return subs.isNotEmpty ? subs.first : null;
-    }
-    String? primerSs(String? cat, String? sub) {
-      final c = categorias.cast<Map<String, dynamic>?>().firstWhere((x) => x?['nombre']?.toString() == cat, orElse: () => null);
-      final mapa = Map<String, dynamic>.from(c?['subsubcategorias'] ?? {});
-      final lista = List<String>.from(mapa[sub] ?? []);
-      return lista.isNotEmpty ? lista.first : null;
-    }
-
-    if (categoria != null) {
-      final c = categorias.cast<Map<String, dynamic>?>().firstWhere((x) => x?['nombre']?.toString() == categoria, orElse: () => null);
-      final subs = List<String>.from(c?['subcategorias'] ?? []);
-      if (subcategoria == null || !subs.contains(subcategoria)) subcategoria = subs.isNotEmpty ? subs.first : null;
-      final mapa = Map<String, dynamic>.from(c?['subsubcategorias'] ?? {});
-      final ss = List<String>.from(mapa[subcategoria] ?? []);
-      if (subsubcategoria == null || !ss.contains(subsubcategoria)) subsubcategoria = ss.isNotEmpty ? ss.first : null;
-    }
-
-    final guardar = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final c = categorias.cast<Map<String, dynamic>?>().firstWhere((x) => x?['nombre']?.toString() == categoria, orElse: () => null);
-            final subs = List<String>.from(c?['subcategorias'] ?? []);
-            final mapaSs = Map<String, dynamic>.from(c?['subsubcategorias'] ?? {});
-            final ss = List<String>.from(mapaSs[subcategoria] ?? []);
-            return AlertDialog(
-              title: Text('Editar histórico · ${nombreMes(DateTime(anio, mes, 1))} $anio'),
-              content: SingleChildScrollView(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  TextField(
-                    controller: cantidadController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Importe', suffixText: '€', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: categoria,
-                    decoration: const InputDecoration(labelText: 'Categoría', border: OutlineInputBorder()),
-                    items: categorias.map((c) => DropdownMenuItem<String>(value: c['nombre']?.toString(), child: Text(c['nombre']?.toString() ?? ''))).toList(),
-                    onChanged: (v) => setDialogState(() {
-                      categoria = v;
-                      subcategoria = primerSub(v);
-                      subsubcategoria = primerSs(v, subcategoria);
-                    }),
-                  ),
-                  if (subs.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: subs.contains(subcategoria) ? subcategoria : null,
-                      decoration: const InputDecoration(labelText: 'Subcategoría', border: OutlineInputBorder()),
-                      items: subs.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
-                      onChanged: (v) => setDialogState(() {
-                        subcategoria = v;
-                        subsubcategoria = primerSs(categoria, v);
-                      }),
-                    ),
-                  ],
-                  if (ss.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: ss.contains(subsubcategoria) ? subsubcategoria : null,
-                      decoration: const InputDecoration(labelText: 'Tipo de gasto', border: OutlineInputBorder()),
-                      items: ss.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
-                      onChanged: (v) => setDialogState(() => subsubcategoria = v),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: notaController,
-                    decoration: const InputDecoration(labelText: 'Nota', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 8),
-                  Align(alignment: Alignment.centerLeft, child: Text('Fecha: 1 de ${nombreMes(DateTime(anio, mes, 1))} $anio', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))),
-                ]),
-              ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancelar')),
-                FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Guardar')),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    if (guardar == true) {
-      final valor = double.tryParse(cantidadController.text.trim().replaceAll(',', '.')) ?? 0;
-      final nuevo = Map<String, dynamic>.from(originalItem);
-      nuevo['importe'] = valor;
-      nuevo['cantidad'] = valor;
-      nuevo['categoria'] = categoria;
-      nuevo['subcategoria'] = subcategoria;
-      if (subsubcategoria == null || subsubcategoria!.isEmpty) {
-        nuevo.remove('subsubcategoria');
-      } else {
-        nuevo['subsubcategoria'] = subsubcategoria;
-      }
-      nuevo['nota'] = notaController.text.trim();
-
-      // Actualizar IDs usando la estructura actual de categorías.
-      final listaCategorias = tipo == 'Gasto' ? categoriasGastos : categoriasIngresos;
-      final c = listaCategorias.cast<Map<String, dynamic>?>().firstWhere((x) => x?['nombre']?.toString() == categoria, orElse: () => null);
-      if (c != null) {
-        nuevo['categoriaId'] = c['id'];
-        final subIds = Map<String, dynamic>.from(c['subcategoriaIds'] ?? {});
-        if (subcategoria != null) nuevo['subcategoriaId'] = subIds[subcategoria];
-        final ssIds = Map<String, dynamic>.from(c['subsubcategoriaIds'] ?? {});
-        if (subcategoria != null && subsubcategoria != null) {
-          nuevo['subsubcategoriaId'] = Map<String, dynamic>.from(ssIds[subcategoria] ?? {})[subsubcategoria];
-        } else {
-          nuevo.remove('subsubcategoriaId');
-        }
-      }
-      lista[indice] = nuevo;
-      await guardarDatos();
-      if (mounted) setState(() {});
-    }
-
-    cantidadController.dispose();
-    notaController.dispose();
-  }
-
   List<Map<String, dynamic>> movimientosDelMes(
       DateTime mes,
       ) {
@@ -4714,7 +2969,6 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       },
     ).toList();
 
-    resultado.addAll(movimientosHistoricosDelMes(mes));
     resultado.sort(compararMovimientosPorFechaHoraDesc);
 
     return resultado;
@@ -4748,32 +3002,32 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
 
   double ingresosAno(int ano) {
     final hoy = DateTime.now();
-    final normales = movimientos
+    return movimientos
         .where((m) {
       final fecha = convertirFecha(m['fecha']?.toString() ?? '');
       final mismoAno = fecha.year == ano;
       final hastaHoy = fecha.isBefore(DateTime(hoy.year, hoy.month, hoy.day).add(const Duration(days: 1)));
       return mismoAno && hastaHoy && m['tipo'] == 'Ingreso';
     })
-        .fold(0.0, (total, m) => total + ((m['cantidad'] as num?) ?? 0).toDouble());
-    final historicosAno = historicos.where((h) => (h['anio'] as num?)?.toInt() == ano).fold(0.0, (total, h) =>
-    total + ((h['ingresos'] as List?) ?? const []).fold(0.0, (s, item) => s + (((item as Map)['importe'] as num?) ?? 0).toDouble()));
-    return normales + historicosAno;
+        .fold(
+      0.0,
+          (total, m) => total + ((m['cantidad'] as num?) ?? 0).toDouble(),
+    );
   }
 
   double gastosAno(int ano) {
     final hoy = DateTime.now();
-    final normales = movimientos
+    return movimientos
         .where((m) {
       final fecha = convertirFecha(m['fecha']?.toString() ?? '');
       final mismoAno = fecha.year == ano;
       final hastaHoy = fecha.isBefore(DateTime(hoy.year, hoy.month, hoy.day).add(const Duration(days: 1)));
       return mismoAno && hastaHoy && m['tipo'] == 'Gasto';
     })
-        .fold(0.0, (total, m) => total + ((m['cantidad'] as num?) ?? 0).toDouble());
-    final historicosAno = historicos.where((h) => (h['anio'] as num?)?.toInt() == ano).fold(0.0, (total, h) =>
-    total + ((h['gastos'] as List?) ?? const []).fold(0.0, (s, item) => s + (((item as Map)['importe'] as num?) ?? 0).toDouble()));
-    return normales + historicosAno;
+        .fold(
+      0.0,
+          (total, m) => total + ((m['cantidad'] as num?) ?? 0).toDouble(),
+    );
   }
 
   double ajustesAno(int ano) {
@@ -4834,10 +3088,12 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
         mesSeleccionado.year == hoy.year &&
             mesSeleccionado.month == hoy.month;
 
-    // Usamos la misma lista que alimenta el resumen mensual, que incluye
-    // tanto movimientos normales como históricos. Los históricos aparecen
-    // virtualmente el día 1 de su mes y pueden editarse desde Inicio.
-    final listaBase = movimientosMesFiltrados.where((m) {
+    final listaBase = movimientos.where((m) {
+      if (_filtroMovimientosInicio != null &&
+          m['tipo'] != _filtroMovimientosInicio) {
+        return false;
+      }
+
       final tipo = m['tipo'];
       if (tipo != 'Gasto' && tipo != 'Ingreso' && tipo != 'Ajuste') {
         return false;
@@ -4881,13 +3137,6 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
         const Text(
           'PastApp',
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Buscar',
-            icon: const Icon(Icons.search),
-            onPressed: abrirBuscador,
-          ),
-        ],
       ),
       body:
       SingleChildScrollView(
@@ -5043,15 +3292,6 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
-                TextButton(
-                  onPressed: () {
-                    final ahora = DateTime.now();
-                    setState(() {
-                      mesSeleccionado = DateTime(ahora.year, ahora.month, 1);
-                    });
-                  },
-                  child: const Text('Hoy'),
-                ),
                 IconButton(
                   onPressed: () {
                     setState(() {
@@ -5070,6 +3310,16 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                     Icons
                         .chevron_right,
                   ),
+                ),
+                const SizedBox(width: 4),
+                OutlinedButton(
+                  onPressed: () {
+                    final hoy = DateTime.now();
+                    setState(() {
+                      mesSeleccionado = DateTime(hoy.year, hoy.month, 1);
+                    });
+                  },
+                  child: const Text('Hoy'),
                 ),
               ],
             ),
@@ -5170,37 +3420,10 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                   ? '${esGasto ? '-' : '+'}${cantidadOriginal.toStringAsFixed(2).replaceAll('.', ',')} $monedaMovimiento'
                   : '${esAjuste ? (cantidad >= 0 ? '+' : '') : (esGasto ? '-' : '+')}${formatearEuros(cantidad.abs())}';
 
-              Timer? temporizadorMantener;
-
               return Card(
                 child: GestureDetector(
                   onTap: () => mostrarDetalleMovimiento(movimiento),
-                  onLongPressDown: kIsWeb
-                      ? null
-                      : (_) {
-                    temporizadorMantener?.cancel();
-                    temporizadorMantener = Timer(
-                      const Duration(milliseconds: 650),
-                          () async {
-                        await HapticFeedback.lightImpact();
-                        if (mounted) {
-                          await Future.delayed(const Duration(milliseconds: 90));
-                          if (mounted) {
-                            await mostrarOpcionesMovimiento(movimiento);
-                          }
-                        }
-                      },
-                    );
-                  },
-                  onLongPressCancel: kIsWeb
-                      ? null
-                      : () => temporizadorMantener?.cancel(),
-                  onLongPressEnd: kIsWeb
-                      ? null
-                      : (_) => temporizadorMantener?.cancel(),
-                  onDoubleTap: kIsWeb
-                      ? () => mostrarOpcionesMovimiento(movimiento)
-                      : null,
+                  onDoubleTap: () => mostrarOpcionesMovimiento(movimiento),
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor: const Color(0xFFF1F1F1),
@@ -5638,27 +3861,11 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       ) async {
     // Al tocar un movimiento se abre directamente su pantalla de edición.
     // No mostramos una pantalla intermedia de "Editar / Eliminar".
-    if (movimiento['esHistorico'] == true) {
-      await editarMovimientoHistorico(movimiento);
-    } else if (movimiento['tipo'] == 'Ajuste') {
+    if (movimiento['tipo'] == 'Ajuste') {
       await editarAjuste(movimiento);
     } else {
       await editarMovimiento(movimiento);
     }
-  }
-
-  Future<void> abrirBuscador() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BuscadorMovimientosPage(
-          movimientos: movimientos,
-          categoriasGastos: categoriasGastos,
-          categoriasIngresos: categoriasIngresos,
-          onMovimientoTap: mostrarDetalleMovimiento,
-        ),
-      ),
-    );
   }
 
   Future<void> seleccionarMes() async {
@@ -5690,7 +3897,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
         return pantallaInicio();
       case 1:
         return Calendario(
-          movimientos: todosLosMovimientosConHistoricos(),
+          movimientos: movimientos,
           mesInicial: mesSeleccionado,
           onMovimientoTap: mostrarDetalleMovimiento,
           onMovimientoLongPress: mostrarOpcionesMovimiento,
@@ -5882,7 +4089,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
         children: [
           pantallaInicio(),
           Calendario(
-            movimientos: todosLosMovimientosConHistoricos(),
+            movimientos: movimientos,
             mesInicial: mesSeleccionado,
             onMovimientoTap: mostrarDetalleMovimiento,
             onMovimientoLongPress: mostrarOpcionesMovimiento,
@@ -6133,7 +4340,6 @@ class _NuevoMovimientoState
   String? categoria;
 
   String? subcategoria;
-  String? subsubcategoria;
 
   double? cantidad;
   double? cantidadOriginal;
@@ -6367,13 +4573,6 @@ class _NuevoMovimientoState
     );
   }
 
-  List<String> get subsubcategorias {
-    final actual = categoriaActual;
-    if (actual == null || subcategoria == null) return [];
-    final mapa = Map<String, dynamic>.from(actual['subsubcategorias'] ?? {});
-    return List<String>.from(mapa[subcategoria] ?? const []);
-  }
-
   // ==========================================================
   // SELECCIÓN DE TIPO
   // ==========================================================
@@ -6385,7 +4584,6 @@ class _NuevoMovimientoState
       tipo = nuevoTipo;
       categoria = null;
       subcategoria = null;
-      subsubcategoria = null;
       paso = 1;
     });
   }
@@ -6401,7 +4599,6 @@ class _NuevoMovimientoState
       categoria = nuevaCategoria['nombre'];
       final subs = List<String>.from(nuevaCategoria['subcategorias'] ?? []);
       subcategoria = null;
-      subsubcategoria = null;
       paso = 2;
     });
   }
@@ -6714,13 +4911,9 @@ class _NuevoMovimientoState
 
       'categoria':
       categoria!,
-      'categoriaId': categoriaActual?['id'],
 
       'subcategoria':
       subcategoria,
-      'subcategoriaId': subcategoria == null ? null : Map<String, String>.from(categoriaActual?['subcategoriaIds'] ?? {})[subcategoria],
-      'subsubcategoria': subsubcategoria,
-      'subsubcategoriaId': subsubcategoria == null ? null : Map<String, String>.from((categoriaActual?['subsubcategoriaIds'] ?? {})[subcategoria] ?? {})[subsubcategoria],
 
       'fecha':
       fechaTexto(fecha),
@@ -6753,7 +4946,6 @@ class _NuevoMovimientoState
       'plantillaTipoCambioPendiente': recurrente ? _tipoCambioPendiente : null,
       'plantillaCategoria': recurrente ? categoria : null,
       'plantillaSubcategoria': recurrente ? subcategoria : null,
-      'plantillaSubsubcategoria': recurrente ? subsubcategoria : null,
       'plantillaEmoji': recurrente ? emoji : null,
       'plantillaNota': recurrente ? notaController.text.trim() : null,
       'plantillaFotoPath': recurrente ? fotoPath : null,
@@ -6799,62 +4991,23 @@ class _NuevoMovimientoState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(14),
-                      onTap: () => seleccionarTipo('Gasto'),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: tipo == 'Gasto' ? Colors.red.withValues(alpha: 0.16) : Colors.transparent,
-                          border: Border.all(
-                            color: tipo == 'Gasto' ? Colors.red : Colors.grey.shade500,
-                            width: tipo == 'Gasto' ? 2 : 1,
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.arrow_downward, color: Colors.red),
-                            const SizedBox(width: 8),
-                            Text('Gasto', style: TextStyle(fontWeight: FontWeight.w600, color: tipo == 'Gasto' ? Colors.red : null)),
-                          ],
-                        ),
-                      ),
-                    ),
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(
+                    value: 'Gasto',
+                    icon: Icon(Icons.arrow_downward),
+                    label: Text('Gasto'),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(14),
-                      onTap: () => seleccionarTipo('Ingreso'),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: tipo == 'Ingreso' ? Colors.green.withValues(alpha: 0.16) : Colors.transparent,
-                          border: Border.all(
-                            color: tipo == 'Ingreso' ? Colors.green : Colors.grey.shade500,
-                            width: tipo == 'Ingreso' ? 2 : 1,
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.arrow_upward, color: Colors.green),
-                            const SizedBox(width: 8),
-                            Text('Ingreso', style: TextStyle(fontWeight: FontWeight.w600, color: tipo == 'Ingreso' ? Colors.green : null)),
-                          ],
-                        ),
-                      ),
-                    ),
+                  ButtonSegment(
+                    value: 'Ingreso',
+                    icon: Icon(Icons.arrow_upward),
+                    label: Text('Ingreso'),
                   ),
                 ],
+                selected: {tipo ?? 'Gasto'},
+                onSelectionChanged: (seleccion) {
+                  seleccionarTipo(seleccion.first);
+                },
               ),
               const SizedBox(height: 18),
               const Text(
@@ -6877,26 +5030,15 @@ class _NuevoMovimientoState
                       style: const TextStyle(fontSize: 17),
                     ),
                     label: Text(nombre),
-                    onSelected: (_) {
-                      if (categoria == nombre) {
-                        setState(() {
-                          categoria = null;
-                          subcategoria = null;
-                          subsubcategoria = null;
-                          paso = 1;
-                        });
-                      } else {
-                        seleccionarCategoria(c);
-                      }
-                    },
+                    onSelected: (_) => seleccionarCategoria(c),
                   );
                 }).toList(),
               ),
               if (categoria != null && subcategorias.isNotEmpty) ...[
                 const SizedBox(height: 18),
-                Text(
-                  categoria == 'Pisos' ? 'Inmueble' : 'Subcategoría',
-                  style: const TextStyle(
+                const Text(
+                  'Subcategoría',
+                  style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
                   ),
@@ -6912,17 +5054,8 @@ class _NuevoMovimientoState
                           (s) => ChoiceChip(
                         label: Text(s),
                         selected: subcategoria == s,
-                        onSelected: (_) {
-                          setState(() {
-                            if (subcategoria == s) {
-                              subcategoria = null;
-                              subsubcategoria = null;
-                            } else {
-                              subcategoria = s;
-                              subsubcategoria = null;
-                            }
-                          });
-                        },
+                        onSelected: (_) =>
+                            setState(() => subcategoria = s),
                       ),
                     ),
                     ActionChip(
@@ -6943,27 +5076,6 @@ class _NuevoMovimientoState
                       ),
                     ),
                   ),
-              ],
-              if (subcategoria != null && subsubcategorias.isNotEmpty) ...[
-                const SizedBox(height: 18),
-                Text(
-                  categoria == 'Pisos' ? 'Tipo de gasto' : 'Detalle',
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: subsubcategorias.map((s) => ChoiceChip(
-                    label: Text(s),
-                    selected: subsubcategoria == s,
-                    onSelected: (_) {
-                      setState(() {
-                        subsubcategoria = subsubcategoria == s ? null : s;
-                      });
-                    },
-                  )).toList(),
-                ),
               ],
               const SizedBox(height: 20),
               const Text(
@@ -7170,271 +5282,6 @@ class _NuevoMovimientoState
 }
 
 // ============================================================
-// BUSCADOR DE MOVIMIENTOS
-// ============================================================
-
-class BuscadorMovimientosPage extends StatefulWidget {
-  final List<Map<String, dynamic>> movimientos;
-  final List<Map<String, dynamic>> categoriasGastos;
-  final List<Map<String, dynamic>> categoriasIngresos;
-  final Future<void> Function(Map<String, dynamic>) onMovimientoTap;
-
-  const BuscadorMovimientosPage({
-    super.key,
-    required this.movimientos,
-    required this.categoriasGastos,
-    required this.categoriasIngresos,
-    required this.onMovimientoTap,
-  });
-
-  @override
-  State<BuscadorMovimientosPage> createState() => _BuscadorMovimientosPageState();
-}
-
-class _BuscadorMovimientosPageState extends State<BuscadorMovimientosPage> {
-  final TextEditingController palabraController = TextEditingController();
-  final TextEditingController menorController = TextEditingController();
-  final TextEditingController mayorController = TextEditingController();
-  final TextEditingController entreDesdeController = TextEditingController();
-  final TextEditingController entreHastaController = TextEditingController();
-
-  String? tipo;
-  String? categoria;
-  String? subcategoria;
-
-  List<String> get categorias {
-    final todas = <String>{};
-    for (final m in widget.movimientos) {
-      final c = m['categoria']?.toString().trim() ?? '';
-      if (c.isNotEmpty) todas.add(c);
-    }
-    return todas.toList()..sort();
-  }
-
-  List<String> get subcategorias {
-    final todas = <String>{};
-    for (final m in widget.movimientos) {
-      if (categoria != null && categoria!.isNotEmpty && m['categoria']?.toString() != categoria) continue;
-      final s = m['subcategoria']?.toString().trim() ?? '';
-      if (s.isNotEmpty) todas.add(s);
-    }
-    return todas.toList()..sort();
-  }
-
-  double? numero(TextEditingController c) {
-    final t = c.text.trim().replaceAll(',', '.');
-    return t.isEmpty ? null : double.tryParse(t);
-  }
-
-  bool coincide(Map<String, dynamic> m) {
-    if (tipo != null && m['tipo']?.toString() != tipo) return false;
-    if (categoria != null && m['categoria']?.toString() != categoria) return false;
-    if (subcategoria != null && m['subcategoria']?.toString() != subcategoria) return false;
-
-    final q = palabraController.text.trim().toLowerCase();
-    if (q.isNotEmpty) {
-      final texto = [
-        m['tipo'],
-        m['categoria'],
-        m['subcategoria'],
-        m['nota'],
-        m['fecha'],
-        m['moneda'],
-      ].map((e) => e?.toString() ?? '').join(' ').toLowerCase();
-      if (!texto.contains(q)) return false;
-    }
-
-    final cantidad = ((m['cantidad'] as num?) ?? 0).toDouble().abs();
-    final menor = numero(menorController);
-    final mayor = numero(mayorController);
-    final desde = numero(entreDesdeController);
-    final hasta = numero(entreHastaController);
-
-    if (menor != null && cantidad >= menor) return false;
-    if (mayor != null && cantidad <= mayor) return false;
-    if (desde != null && cantidad < desde) return false;
-    if (hasta != null && cantidad > hasta) return false;
-
-    return true;
-  }
-
-  List<Map<String, dynamic>> get resultados {
-    final lista = widget.movimientos.where(coincide).toList();
-    lista.sort(compararMovimientosPorFechaHoraDesc);
-    return lista;
-  }
-
-  @override
-  void dispose() {
-    palabraController.dispose();
-    menorController.dispose();
-    mayorController.dispose();
-    entreDesdeController.dispose();
-    entreHastaController.dispose();
-    super.dispose();
-  }
-
-  Widget campoImporte(String etiqueta, TextEditingController controller) {
-    return Expanded(
-      child: TextField(
-        controller: controller,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: InputDecoration(
-          labelText: etiqueta,
-          prefixText: '€ ',
-          border: const OutlineInputBorder(),
-        ),
-        onChanged: (_) => setState(() {}),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final listaSub = subcategorias;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Buscar movimientos'),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Column(
-              children: [
-                TextField(
-                  controller: palabraController,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Palabra',
-                    hintText: 'Categoría, nota, fecha, moneda…',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String?>(
-                        value: tipo,
-                        decoration: const InputDecoration(
-                          labelText: 'Tipo',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: const [
-                          DropdownMenuItem<String?>(value: null, child: Text('Todos')),
-                          DropdownMenuItem<String?>(value: 'Gasto', child: Text('Gasto')),
-                          DropdownMenuItem<String?>(value: 'Ingreso', child: Text('Ingreso')),
-                        ],
-                        onChanged: (v) => setState(() => tipo = v),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: DropdownButtonFormField<String?>(
-                        value: categoria,
-                        decoration: const InputDecoration(
-                          labelText: 'Categoría',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: [
-                          const DropdownMenuItem<String?>(value: null, child: Text('Todas')),
-                          ...categorias.map((c) => DropdownMenuItem<String?>(value: c, child: Text(c))),
-                        ],
-                        onChanged: (v) => setState(() {
-                          categoria = v;
-                          subcategoria = null;
-                        }),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String?>(
-                  value: subcategoria,
-                  decoration: const InputDecoration(
-                    labelText: 'Subcategoría',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem<String?>(value: null, child: Text('Todas')),
-                    ...listaSub.map((s) => DropdownMenuItem<String?>(value: s, child: Text(s))),
-                  ],
-                  onChanged: (v) => setState(() => subcategoria = v),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    campoImporte('Menor que', menorController),
-                    const SizedBox(width: 8),
-                    campoImporte('Mayor que', mayorController),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    campoImporte('Entre', entreDesdeController),
-                    const SizedBox(width: 8),
-                    campoImporte('y', entreHastaController),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '${resultados.length} resultado${resultados.length == 1 ? '' : 's'}',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ),
-          Expanded(
-            child: resultados.isEmpty
-                ? const Center(child: Text('No se han encontrado movimientos'))
-                : ListView.builder(
-              itemCount: resultados.length,
-              itemBuilder: (_, i) {
-                final m = resultados[i];
-                final gasto = m['tipo'] == 'Gasto';
-                final ajuste = m['tipo'] == 'Ajuste';
-                final cantidad = ((m['cantidad'] as num?) ?? 0).toDouble();
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: const Color(0xFFF1F1F1),
-                    child: Text(m['emoji'] ?? (gasto ? '💸' : '💰')),
-                  ),
-                  title: Text(m['categoria']?.toString() ?? m['tipo']?.toString() ?? ''),
-                  subtitle: Text([
-                    m['fecha']?.toString() ?? '',
-                    if ((m['subcategoria']?.toString() ?? '').isNotEmpty) m['subcategoria'].toString(),
-                    if ((m['nota']?.toString().trim() ?? '').isNotEmpty) '📝 ${m['nota']}',
-                  ].join(' · ')),
-                  trailing: Text(
-                    '${ajuste ? (cantidad >= 0 ? '+' : '') : (gasto ? '-' : '+')}${formatearEuros(cantidad.abs())}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: ajuste ? Colors.orange : (gasto ? Colors.red : Colors.green),
-                    ),
-                  ),
-                  onTap: () => widget.onMovimientoTap(m),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================
 // CALENDARIO
 // ============================================================
 
@@ -7518,25 +5365,6 @@ class _CalendarioState
         const Text(
           'Calendario',
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Buscar',
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => BuscadorMovimientosPage(
-                    movimientos: widget.movimientos,
-                    categoriasGastos: const [],
-                    categoriasIngresos: const [],
-                    onMovimientoTap: widget.onMovimientoTap,
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
       ),
 
       body:
@@ -7876,8 +5704,6 @@ class _CalendarioState
                             0)
                             .toDouble();
 
-                        Timer? temporizadorMantener;
-
                         return GestureDetector(
                           onTap: () {
                             Navigator.pop(context);
@@ -7887,43 +5713,14 @@ class _CalendarioState
                               }
                             });
                           },
-                          onLongPressDown: kIsWeb
-                              ? null
-                              : (_) {
-                            temporizadorMantener?.cancel();
-                            temporizadorMantener = Timer(
-                              const Duration(milliseconds: 650),
-                                  () async {
-                                await HapticFeedback.lightImpact();
-                                if (mounted) {
-                                  await Future.delayed(const Duration(milliseconds: 90));
-                                  if (mounted) {
-                                    Navigator.pop(context);
-                                    await Future.delayed(const Duration(milliseconds: 120));
-                                    if (mounted) {
-                                      await widget.onMovimientoLongPress(m);
-                                    }
-                                  }
-                                }
-                              },
-                            );
-                          },
-                          onLongPressCancel: kIsWeb
-                              ? null
-                              : () => temporizadorMantener?.cancel(),
-                          onLongPressEnd: kIsWeb
-                              ? null
-                              : (_) => temporizadorMantener?.cancel(),
-                          onDoubleTap: kIsWeb
-                              ? () {
+                          onDoubleTap: () {
                             Navigator.pop(context);
                             Future.delayed(const Duration(milliseconds: 120), () {
                               if (mounted) {
                                 widget.onMovimientoLongPress(m);
                               }
                             });
-                          }
-                              : null,
+                          },
                           child: ListTile(
                             leading:
                             CircleAvatar(
@@ -7999,21 +5796,6 @@ class _EstadisticasState extends State<Estadisticas> {
   String periodo = 'Mes';
   String? filtroTipo;
   final Set<String> categoriasAbiertas = {};
-  int anoSeleccionado = DateTime.now().year;
-
-  List<int> get anosDisponibles {
-    final anos = <int>{DateTime.now().year};
-    for (final h in widget.historicos) {
-      final a = (h['anio'] as num?)?.toInt();
-      if (a != null) anos.add(a);
-    }
-    for (final m in widget.movimientos) {
-      final f = convertirFecha(m['fecha']?.toString() ?? '');
-      if (f.year > 1900) anos.add(f.year);
-    }
-    final lista = anos.toList()..sort();
-    return lista;
-  }
 
   List<Map<String, dynamic>> get movimientosFiltrados {
     final ahora = DateTime.now();
@@ -8024,8 +5806,8 @@ class _EstadisticasState extends State<Estadisticas> {
       inicio = DateTime(ahora.year, ahora.month, ahora.day - (ahora.weekday - 1));
       fin = inicio.add(const Duration(days: 7));
     } else if (periodo == 'Año') {
-      inicio = DateTime(anoSeleccionado, 1, 1);
-      fin = DateTime(anoSeleccionado + 1, 1, 1);
+      inicio = DateTime(ahora.year, 1, 1);
+      fin = DateTime(ahora.year + 1, 1, 1);
     } else {
       inicio = DateTime(ahora.year, ahora.month, 1);
       fin = DateTime(ahora.year, ahora.month + 1, 1);
@@ -8038,22 +5820,21 @@ class _EstadisticasState extends State<Estadisticas> {
     }).toList();
   }
 
-  List<Map<String, dynamic>> get historicosAno =>
-      widget.historicos.where((h) => (h['anio'] as num?)?.toInt() == anoSeleccionado).toList();
-
   double cantidad(Map<String, dynamic> m) =>
       ((m['cantidad'] as num?) ?? 0).toDouble();
 
   double get historicoGastosPeriodo {
     if (periodo != 'Año') return 0;
-    return historicosAno.fold(0.0, (t, h) =>
-    t + ((h['totalGastos'] as num?) ?? 0).toDouble());
+    final ahora = DateTime.now();
+    return widget.historicos.where((h) => (h['anio'] as num?)?.toInt() == ahora.year).fold(0.0, (t, h) =>
+    t + ((h['hipoteca'] as num?) ?? 0).toDouble() + ((h['alquiler'] as num?) ?? 0).toDouble() + ((h['gastosTotalesHistorico'] as num?) ?? 0).toDouble());
   }
 
   double get historicoIngresosPeriodo {
     if (periodo != 'Año') return 0;
-    return historicosAno.fold(0.0, (t, h) =>
-    t + ((h['totalIngresos'] as num?) ?? 0).toDouble());
+    final ahora = DateTime.now();
+    return widget.historicos.where((h) => (h['anio'] as num?)?.toInt() == ahora.year).fold(0.0, (t, h) =>
+    t + ((h['salario'] as num?) ?? 0).toDouble() + ((h['pieris'] as num?) ?? 0).toDouble());
   }
 
   List<Map<String, dynamic>> get movimientosSegunFiltro {
@@ -8081,25 +5862,10 @@ class _EstadisticasState extends State<Estadisticas> {
       mapa[categoria] = (mapa[categoria] ?? 0) + cantidad(m);
     }
     if (periodo == 'Año') {
-      for (final h in historicosAno) {
-        for (final item in List<Map<String, dynamic>>.from(
-          (h['gastos'] ?? []).map((x) => Map<String, dynamic>.from(x)),
-        )) {
-          final categoria = item['categoria']?.toString() ?? 'Miscelánea';
-          mapa[categoria] = (mapa[categoria] ?? 0) +
-              ((item['importe'] as num?) ?? 0).toDouble();
-        }
-        for (final item in List<Map<String, dynamic>>.from(
-          (h['inversiones'] ?? []).map((x) => Map<String, dynamic>.from(x)),
-        )) {
-          final categoria = item['categoria']?.toString() ?? 'Compra inmuebles';
-          mapa[categoria] = (mapa[categoria] ?? 0) +
-              ((item['importe'] as num?) ?? 0).toDouble();
-        }
-        final historico = ((h['gastosHistoricos'] as num?) ?? 0).toDouble();
-        if (historico != 0) {
-          mapa['Gastos históricos'] = (mapa['Gastos históricos'] ?? 0) + historico;
-        }
+      final ahora = DateTime.now();
+      for (final h in widget.historicos.where((h) => (h['anio'] as num?)?.toInt() == ahora.year)) {
+        mapa['Hipotecas'] = (mapa['Hipotecas'] ?? 0) + ((h['hipoteca'] as num?) ?? 0).toDouble();
+        mapa['Alquiler'] = (mapa['Alquiler'] ?? 0) + ((h['alquiler'] as num?) ?? 0).toDouble();
       }
     }
     return mapa;
@@ -8113,14 +5879,10 @@ class _EstadisticasState extends State<Estadisticas> {
       mapa[categoria] = (mapa[categoria] ?? 0) + cantidad(m);
     }
     if (periodo == 'Año') {
-      for (final h in historicosAno) {
-        for (final item in List<Map<String, dynamic>>.from(
-          (h['ingresos'] ?? []).map((x) => Map<String, dynamic>.from(x)),
-        )) {
-          final categoria = item['categoria']?.toString() ?? 'Miscelánea';
-          mapa[categoria] = (mapa[categoria] ?? 0) +
-              ((item['importe'] as num?) ?? 0).toDouble();
-        }
+      final ahora = DateTime.now();
+      for (final h in widget.historicos.where((h) => (h['anio'] as num?)?.toInt() == ahora.year)) {
+        mapa['Salario'] = (mapa['Salario'] ?? 0) + ((h['salario'] as num?) ?? 0).toDouble();
+        mapa['Pieris'] = (mapa['Pieris'] ?? 0) + ((h['pieris'] as num?) ?? 0).toDouble();
       }
     }
     return mapa;
@@ -8133,28 +5895,6 @@ class _EstadisticasState extends State<Estadisticas> {
       final sub = m['subcategoria']?.toString().trim();
       final nombre = sub == null || sub.isEmpty ? 'Otros' : sub;
       mapa[nombre] = (mapa[nombre] ?? 0) + cantidad(m);
-    }
-    if (periodo == 'Año') {
-      for (final h in historicosAno) {
-        final listas = <List<dynamic>>[
-          List<dynamic>.from(h['gastos'] ?? []),
-          List<dynamic>.from(h['inversiones'] ?? []),
-        ];
-        for (final lista in listas) {
-          for (final raw in lista) {
-            final item = Map<String, dynamic>.from(raw);
-            if (item['categoria']?.toString() != categoria) continue;
-            final sub = item['subcategoria']?.toString().trim();
-            final nombre = sub == null || sub.isEmpty ? 'Otros' : sub;
-            mapa[nombre] = (mapa[nombre] ?? 0) +
-                ((item['importe'] as num?) ?? 0).toDouble();
-          }
-        }
-        if (categoria == 'Gastos históricos') {
-          final importe = ((h['gastosHistoricos'] as num?) ?? 0).toDouble();
-          if (importe != 0) mapa['Gastos no desglosados'] = (mapa['Gastos no desglosados'] ?? 0) + importe;
-        }
-      }
     }
     return mapa;
   }
@@ -8206,31 +5946,6 @@ class _EstadisticasState extends State<Estadisticas> {
                 });
               },
             ),
-            if (periodo == 'Año') ...[
-              const SizedBox(height: 14),
-              DropdownButtonFormField<int>(
-                value: anosDisponibles.contains(anoSeleccionado)
-                    ? anoSeleccionado
-                    : anosDisponibles.last,
-                decoration: const InputDecoration(
-                  labelText: 'Año',
-                  border: OutlineInputBorder(),
-                ),
-                items: anosDisponibles
-                    .map((ano) => DropdownMenuItem<int>(
-                  value: ano,
-                  child: Text(ano.toString()),
-                ))
-                    .toList(),
-                onChanged: (ano) {
-                  if (ano == null) return;
-                  setState(() {
-                    anoSeleccionado = ano;
-                    categoriasAbiertas.clear();
-                  });
-                },
-              ),
-            ],
             const SizedBox(height: 25),
             Row(
               children: [
@@ -8380,44 +6095,13 @@ class _EstadisticasState extends State<Estadisticas> {
                           ),
                         ),
                       ),
-                      if (abierta && entrada.key == 'Pisos' && tiposPisosPorInmueble().isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(54, 0, 16, 12),
-                          child: Column(
-                            children: tiposPisosPorInmueble().entries.map((inmueble) {
-                              final totalInmueble = inmueble.value.values.fold<double>(0, (a, b) => a + b);
-                              final tipos = inmueble.value.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 7),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(child: Text(inmueble.key, style: const TextStyle(fontWeight: FontWeight.w600))),
-                                        Text('${formatearEuros(totalInmueble)} · ${(_porcentajeSeguro(totalInmueble, entrada.value) * 100).toStringAsFixed(1)}%'),
-                                      ],
-                                    ),
-                                    ...tipos.map((t) => Padding(
-                                      padding: const EdgeInsets.only(left: 18, top: 5),
-                                      child: Row(
-                                        children: [
-                                          Expanded(child: Text(t.key)),
-                                          Text('${formatearEuros(t.value)} · ${(_porcentajeSeguro(t.value, totalInmueble) * 100).toStringAsFixed(1)}%'),
-                                        ],
-                                      ),
-                                    )),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        )
-                      else if (abierta && subcategorias.isNotEmpty)
+                      if (abierta)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(54, 0, 16, 12),
                           child: Column(
                             children: subcategorias.map((sub) {
-                              final porcentajeSub = totalPeriodo > 0 ? sub.value / totalPeriodo : 0.0;
+                              final porcentajeSub =
+                              totalPeriodo > 0 ? sub.value / totalPeriodo : 0.0;
                               return Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 7),
                                 child: Row(
@@ -8438,35 +6122,6 @@ class _EstadisticasState extends State<Estadisticas> {
         ),
       ),
     );
-  }
-
-  double _porcentajeSeguro(double valor, double total) {
-    if (total <= 0) return 0.0;
-    return valor / total;
-  }
-
-  Map<String, Map<String, double>> tiposPisosPorInmueble() {
-    final resultado = <String, Map<String, double>>{};
-    void sumar(String inmueble, String tipoGasto, double importe) {
-      final i = inmueble.trim().isEmpty ? 'Otros' : inmueble.trim();
-      final t = tipoGasto.trim().isEmpty ? 'Otros' : tipoGasto.trim();
-      final mapa = resultado.putIfAbsent(i, () => <String, double>{});
-      mapa[t] = (mapa[t] ?? 0) + importe;
-    }
-    for (final m in movimientosFiltrados) {
-      if (m['tipo'] != 'Gasto' || m['categoria']?.toString() != 'Pisos') continue;
-      sumar(m['subcategoria']?.toString() ?? 'Otros', m['subsubcategoria']?.toString() ?? 'Otros', cantidad(m));
-    }
-    if (periodo == 'Año') {
-      for (final h in historicosAno) {
-        for (final raw in List<dynamic>.from(h['gastos'] ?? [])) {
-          final item = Map<String, dynamic>.from(raw);
-          if (item['categoria']?.toString() != 'Pisos') continue;
-          sumar(item['subcategoria']?.toString() ?? 'Otros', item['subsubcategoria']?.toString() ?? 'Otros', ((item['importe'] as num?) ?? 0).toDouble());
-        }
-      }
-    }
-    return resultado;
   }
 
   List<Widget> _listaCategorias(
@@ -8551,50 +6206,22 @@ class _EstadisticasState extends State<Estadisticas> {
                 ),
               ),
             ),
-            if (abierta && entrada.key == 'Pisos' && tiposPisosPorInmueble().isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(54, 0, 16, 12),
-                child: Column(
-                  children: tiposPisosPorInmueble().entries.map((inmueble) {
-                    final totalInmueble = inmueble.value.values.fold<double>(0, (a, b) => a + b);
-                    final tipos = inmueble.value.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 7),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(child: Text(inmueble.key, style: const TextStyle(fontWeight: FontWeight.w600))),
-                              Text('${formatearEuros(totalInmueble)} · ${(_porcentajeSeguro(totalInmueble, entrada.value) * 100).toStringAsFixed(1)}%'),
-                            ],
-                          ),
-                          ...tipos.map((t) => Padding(
-                            padding: const EdgeInsets.only(left: 18, top: 5),
-                            child: Row(
-                              children: [
-                                Expanded(child: Text(t.key)),
-                                Text('${formatearEuros(t.value)} · ${(_porcentajeSeguro(t.value, totalInmueble) * 100).toStringAsFixed(1)}%'),
-                              ],
-                            ),
-                          )),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
-              )
-            else if (abierta && subcategorias.isNotEmpty)
+            if (abierta && subcategorias.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(54, 0, 16, 12),
                 child: Column(
                   children: subcategorias.map((sub) {
-                    final porcentajeSub = total > 0 ? sub.value / total : 0.0;
+                    final porcentajeSub =
+                    total > 0 ? sub.value / total : 0.0;
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 7),
                       child: Row(
                         children: [
                           Expanded(child: Text(sub.key)),
-                          Text('${formatearEuros(sub.value)} · ${(porcentajeSub * 100).toStringAsFixed(1)}%'),
+                          Text(
+                            '${formatearEuros(sub.value)} · '
+                                '${(porcentajeSub * 100).toStringAsFixed(1)}%',
+                          ),
                         ],
                       ),
                     );
@@ -8622,32 +6249,6 @@ class _EstadisticasState extends State<Estadisticas> {
       final sub = m['subcategoria']?.toString().trim();
       final nombre = sub == null || sub.isEmpty ? 'Otros' : sub;
       mapa[nombre] = (mapa[nombre] ?? 0) + cantidad(m);
-    }
-
-    if (periodo == 'Año') {
-      for (final h in historicosAno) {
-        final lista = tipo == 'Ingreso'
-            ? List<dynamic>.from(h['ingresos'] ?? [])
-            : <dynamic>[
-          ...List<dynamic>.from(h['gastos'] ?? []),
-          ...List<dynamic>.from(h['inversiones'] ?? []),
-        ];
-        for (final raw in lista) {
-          final item = Map<String, dynamic>.from(raw);
-          if (item['categoria']?.toString() != categoria) continue;
-          final sub = item['subcategoria']?.toString().trim();
-          final nombre = sub == null || sub.isEmpty ? 'Otros' : sub;
-          mapa[nombre] = (mapa[nombre] ?? 0) +
-              ((item['importe'] as num?) ?? 0).toDouble();
-        }
-        if (tipo == 'Gasto' && categoria == 'Gastos históricos') {
-          final importe = ((h['gastosHistoricos'] as num?) ?? 0).toDouble();
-          if (importe != 0) {
-            mapa['Gastos no desglosados'] =
-                (mapa['Gastos no desglosados'] ?? 0) + importe;
-          }
-        }
-      }
     }
 
     return mapa;
@@ -9530,19 +7131,17 @@ class _AjustesState
                     return;
                   }
 
-                  final antiguo = categoria['nombre']?.toString() ?? '';
-                  final nuevo = nombreController.text.trim();
-                  final tipo = widget.categoriasIngresos.contains(categoria) ? 'Ingreso' : 'Gasto';
-                  actualizarNombreCategoriaEnDatos(
-                    movimientos: widget.movimientos,
-                    historicos: widget.historicos,
-                    tipo: tipo,
-                    antiguo: antiguo,
-                    nuevo: nuevo,
-                    categoriaId: categoria['id']?.toString(),
-                  );
-                  categoria['nombre'] = nuevo;
-                  categoria['emoji'] = emojiController.text.trim();
+                  categoria[
+                  'nombre'] =
+                      nombreController
+                          .text
+                          .trim();
+
+                  categoria[
+                  'emoji'] =
+                      emojiController
+                          .text
+                          .trim();
 
                   Navigator.pop(
                     context,
@@ -9696,9 +7295,6 @@ class _AjustesState
       MaterialPageRoute(
         builder: (_) => GestionSubcategoriasPage(
           categoria: categoria,
-          movimientos: widget.movimientos,
-          historicos: widget.historicos,
-          tipo: widget.categoriasIngresos.contains(categoria) ? 'Ingreso' : 'Gasto',
           onChanged: widget.onCategoriasChanged,
         ),
       ),
@@ -10077,7 +7673,6 @@ class _AjustesState
                     titulo: 'Editar gastos',
                     lista: widget.categoriasGastos,
                     movimientos: widget.movimientos,
-                    historicos: widget.historicos,
                     onChanged: widget.onCategoriasChanged,
                   ),
                 ),
@@ -10101,7 +7696,6 @@ class _AjustesState
                     titulo: 'Editar ingresos',
                     lista: widget.categoriasIngresos,
                     movimientos: widget.movimientos,
-                    historicos: widget.historicos,
                     onChanged: widget.onCategoriasChanged,
                   ),
                 ),
@@ -10210,119 +7804,10 @@ class _HistoricoPageState extends State<HistoricoPage> {
 // GESTIÓN DE CATEGORÍAS
 // ============================================================
 
-void actualizarNombreCategoriaEnDatos({
-  required List<Map<String, dynamic>> movimientos,
-  required List<Map<String, dynamic>> historicos,
-  required String tipo,
-  required String antiguo,
-  required String nuevo,
-  String? categoriaId,
-}) {
-  for (final m in movimientos) {
-    if (m['tipo'] == tipo &&
-        ((categoriaId != null && m['categoriaId']?.toString() == categoriaId) ||
-            m['categoria']?.toString() == antiguo)) {
-      m['categoria'] = nuevo;
-      if (m['plantillaCategoria']?.toString() == antiguo) {
-        m['plantillaCategoria'] = nuevo;
-      }
-    }
-  }
-  for (final h in historicos) {
-    final clave = tipo == 'Ingreso' ? 'ingresos' : 'gastos';
-    final lista = h[clave];
-    if (lista is List) {
-      for (final item in lista) {
-        if (item is Map &&
-            ((categoriaId != null && item['categoriaId']?.toString() == categoriaId) ||
-                item['categoria']?.toString() == antiguo)) {
-          item['categoria'] = nuevo;
-        }
-      }
-    }
-  }
-}
-
-void actualizarNombreSubcategoriaEnDatos({
-  required List<Map<String, dynamic>> movimientos,
-  required List<Map<String, dynamic>> historicos,
-  required String tipo,
-  required String categoria,
-  required String antiguo,
-  required String nuevo,
-  String? subcategoriaId,
-}) {
-  for (final m in movimientos) {
-    if (m['tipo'] == tipo &&
-        m['categoria']?.toString() == categoria &&
-        ((subcategoriaId != null && m['subcategoriaId']?.toString() == subcategoriaId) ||
-            m['subcategoria']?.toString() == antiguo)) {
-      m['subcategoria'] = nuevo;
-      if (m['plantillaSubcategoria']?.toString() == antiguo) {
-        m['plantillaSubcategoria'] = nuevo;
-      }
-    }
-  }
-  for (final h in historicos) {
-    final clave = tipo == 'Ingreso' ? 'ingresos' : 'gastos';
-    final lista = h[clave];
-    if (lista is List) {
-      for (final item in lista) {
-        if (item is Map &&
-            item['categoria']?.toString() == categoria &&
-            ((subcategoriaId != null && item['subcategoriaId']?.toString() == subcategoriaId) ||
-                item['subcategoria']?.toString() == antiguo)) {
-          item['subcategoria'] = nuevo;
-        }
-      }
-    }
-  }
-}
-
-void actualizarNombreSubsubcategoriaEnDatos({
-  required List<Map<String, dynamic>> movimientos,
-  required List<Map<String, dynamic>> historicos,
-  required String tipo,
-  required String categoria,
-  required String subcategoria,
-  required String antiguo,
-  required String nuevo,
-  String? subsubcategoriaId,
-}) {
-  for (final m in movimientos) {
-    if (m['tipo'] == tipo &&
-        m['categoria']?.toString() == categoria &&
-        m['subcategoria']?.toString() == subcategoria &&
-        ((subsubcategoriaId != null && m['subsubcategoriaId']?.toString() == subsubcategoriaId) ||
-            m['subsubcategoria']?.toString() == antiguo)) {
-      m['subsubcategoria'] = nuevo;
-      if (m['plantillaSubsubcategoria']?.toString() == antiguo) {
-        m['plantillaSubsubcategoria'] = nuevo;
-      }
-    }
-  }
-  for (final h in historicos) {
-    final clave = tipo == 'Ingreso' ? 'ingresos' : 'gastos';
-    final lista = h[clave];
-    if (lista is List) {
-      for (final item in lista) {
-        if (item is Map &&
-            item['categoria']?.toString() == categoria &&
-            item['subcategoria']?.toString() == subcategoria &&
-            ((subsubcategoriaId != null && item['subsubcategoriaId']?.toString() == subsubcategoriaId) ||
-                item['subsubcategoria']?.toString() == antiguo)) {
-          item['subsubcategoria'] = nuevo;
-        }
-      }
-    }
-  }
-}
-
 class GestionCategoriasPage extends StatefulWidget {
   final String titulo;
   final List<Map<String, dynamic>> lista;
   final List<Map<String, dynamic>> movimientos;
-  final List<Map<String, dynamic>> historicos;
   final Future<void> Function() onChanged;
 
   const GestionCategoriasPage({
@@ -10330,7 +7815,6 @@ class GestionCategoriasPage extends StatefulWidget {
     required this.titulo,
     required this.lista,
     required this.movimientos,
-    required this.historicos,
     required this.onChanged,
   });
 
@@ -10362,18 +7846,7 @@ class _GestionCategoriasPageState extends State<GestionCategoriasPage> {
       ),
     );
     if (guardar == true && nombreController.text.trim().isNotEmpty) {
-      final antiguo = categoria['nombre']?.toString() ?? '';
-      final nuevo = nombreController.text.trim();
-      final tipo = widget.titulo.toLowerCase().contains('ingreso') ? 'Ingreso' : 'Gasto';
-      actualizarNombreCategoriaEnDatos(
-        movimientos: widget.movimientos,
-        historicos: widget.historicos,
-        tipo: tipo,
-        antiguo: antiguo,
-        nuevo: nuevo,
-        categoriaId: categoria['id']?.toString(),
-      );
-      categoria['nombre'] = nuevo;
+      categoria['nombre'] = nombreController.text.trim();
       categoria['emoji'] = emojiController.text.trim().isEmpty ? '📦' : emojiController.text.trim();
       await widget.onChanged();
       if (mounted) setState(() {});
@@ -10404,7 +7877,6 @@ class _GestionCategoriasPageState extends State<GestionCategoriasPage> {
     );
     if (guardar == true && nombreController.text.trim().isNotEmpty) {
       widget.lista.add({
-        'id': DateTime.now().microsecondsSinceEpoch.toString(),
         'nombre': nombreController.text.trim(),
         'emoji': emojiController.text.trim().isEmpty ? '📦' : emojiController.text.trim(),
         'subcategorias': <String>[],
@@ -10532,7 +8004,7 @@ class _GestionCategoriasPageState extends State<GestionCategoriasPage> {
                     onSelected: (opcion) async {
                       if (opcion == 'editar') await editarCategoria(originalIndex);
                       if (opcion == 'sub') {
-                        await Navigator.push(context, MaterialPageRoute(builder: (_) => GestionSubcategoriasPage(categoria: categoria, movimientos: widget.movimientos, historicos: widget.historicos, tipo: widget.titulo.toLowerCase().contains('ingreso') ? 'Ingreso' : 'Gasto', onChanged: widget.onChanged)));
+                        await Navigator.push(context, MaterialPageRoute(builder: (_) => GestionSubcategoriasPage(categoria: categoria, onChanged: widget.onChanged)));
                         if (mounted) setState(() {});
                       }
                       if (opcion == 'borrar') await eliminarCategoria(originalIndex);
@@ -10619,17 +8091,11 @@ class _NuevaSubcategoriaPageState extends State<NuevaSubcategoriaPage> {
 
 class GestionSubcategoriasPage extends StatefulWidget {
   final Map<String, dynamic> categoria;
-  final List<Map<String, dynamic>> movimientos;
-  final List<Map<String, dynamic>> historicos;
-  final String tipo;
   final Future<void> Function() onChanged;
 
   const GestionSubcategoriasPage({
     super.key,
     required this.categoria,
-    required this.movimientos,
-    required this.historicos,
-    required this.tipo,
     required this.onChanged,
   });
 
@@ -10660,107 +8126,8 @@ class _GestionSubcategoriasPageState extends State<GestionSubcategoriasPage> {
       subcategorias.add(texto);
       if (!subcategorias.contains('Otros')) subcategorias.add('Otros');
       widget.categoria['subcategorias'] = subcategorias;
-      final ids = Map<String, String>.from(widget.categoria['subcategoriaIds'] ?? {});
-      ids.putIfAbsent(texto, () => '${widget.categoria['id']}_sub_${DateTime.now().microsecondsSinceEpoch}');
-      widget.categoria['subcategoriaIds'] = ids;
     });
     await widget.onChanged();
-  }
-
-  Future<void> editar(int index) async {
-    final antiguo = subcategorias[index];
-    final controller = TextEditingController(text: antiguo);
-    final nuevo = await showDialog<String>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Editar subcategoría'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Nombre'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () {
-              final valor = controller.text.trim();
-              if (valor.isNotEmpty) Navigator.pop(context, valor);
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (nuevo == null || nuevo.trim().isEmpty || nuevo.trim() == antiguo) return;
-    final texto = nuevo.trim();
-    if (subcategorias.contains(texto)) return;
-    actualizarNombreSubcategoriaEnDatos(
-      movimientos: widget.movimientos,
-      historicos: widget.historicos,
-      tipo: widget.tipo,
-      categoria: widget.categoria['nombre']?.toString() ?? '',
-      antiguo: antiguo,
-      nuevo: texto,
-      subcategoriaId: Map<String, String>.from(widget.categoria['subcategoriaIds'] ?? {})[antiguo],
-    );
-    setState(() {
-      final ids = Map<String, String>.from(widget.categoria['subcategoriaIds'] ?? {});
-      final id = ids.remove(antiguo) ?? '${widget.categoria['id']}_sub_${DateTime.now().microsecondsSinceEpoch}';
-      ids[texto] = id;
-      widget.categoria['subcategoriaIds'] = ids;
-      final ss = Map<String, dynamic>.from(widget.categoria['subsubcategorias'] ?? {});
-      if (ss.containsKey(antiguo)) { ss[texto] = ss.remove(antiguo); }
-      widget.categoria['subsubcategorias'] = ss;
-      final ssIds = Map<String, dynamic>.from(widget.categoria['subsubcategoriaIds'] ?? {});
-      if (ssIds.containsKey(antiguo)) { ssIds[texto] = ssIds.remove(antiguo); }
-      widget.categoria['subsubcategoriaIds'] = ssIds;
-      subcategorias[index] = texto;
-      widget.categoria['subcategorias'] = subcategorias;
-    });
-    await widget.onChanged();
-  }
-
-  Future<void> editarTipo(String inmueble, String tipoGasto) async {
-    final mapaIds = Map<String, dynamic>.from(widget.categoria['subsubcategoriaIds'] ?? {});
-    final idsInmueble = Map<String, String>.from(mapaIds[inmueble] ?? {});
-    final oldId = idsInmueble[tipoGasto];
-    final controller = TextEditingController(text: tipoGasto);
-    final nuevo = await showDialog<String>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Editar tipo de gasto'),
-        content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(labelText: 'Nombre')),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () { final v = controller.text.trim(); if (v.isNotEmpty) Navigator.pop(context, v); }, child: const Text('Guardar')),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (nuevo == null || nuevo.isEmpty || nuevo == tipoGasto) return;
-    final nombres = List<String>.from(widget.categoria['subsubcategorias']?[inmueble] ?? const []);
-    if (nombres.contains(nuevo)) return;
-    actualizarNombreSubsubcategoriaEnDatos(
-      movimientos: widget.movimientos,
-      historicos: widget.historicos,
-      tipo: widget.tipo,
-      categoria: widget.categoria['nombre']?.toString() ?? '',
-      subcategoria: inmueble,
-      antiguo: tipoGasto,
-      nuevo: nuevo,
-      subsubcategoriaId: oldId?.toString(),
-    );
-    final nuevoNombres = List<String>.from(nombres)..[nombres.indexOf(tipoGasto)] = nuevo;
-    final nuevosMapas = Map<String, dynamic>.from(widget.categoria['subsubcategorias'] ?? {});
-    nuevosMapas[inmueble] = nuevoNombres;
-    widget.categoria['subsubcategorias'] = nuevosMapas;
-    idsInmueble[nuevo] = idsInmueble.remove(tipoGasto) ?? '${widget.categoria['id']}_ss_${DateTime.now().microsecondsSinceEpoch}';
-    final nuevosIds = Map<String, dynamic>.from(widget.categoria['subsubcategoriaIds'] ?? {});
-    nuevosIds[inmueble] = idsInmueble;
-    widget.categoria['subsubcategoriaIds'] = nuevosIds;
-    await widget.onChanged();
-    if (mounted) setState(() {});
   }
 
   Future<void> eliminar(int index) async {
@@ -10785,29 +8152,13 @@ class _GestionSubcategoriasPageState extends State<GestionSubcategoriasPage> {
           : ListView.separated(
         padding: const EdgeInsets.all(12),
         itemCount: subcategorias.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        separatorBuilder: (_, __) => const Divider(height: 1),
         itemBuilder: (context, index) {
-          final inmueble = subcategorias[index];
-          final esPisos = widget.categoria['nombre']?.toString() == 'Pisos';
-          final tipos = esPisos ? List<String>.from((widget.categoria['subsubcategorias']?[inmueble] ?? const [])) : const <String>[];
-          return Card(
-            child: ExpansionTile(
-              title: Text(inmueble, style: const TextStyle(fontWeight: FontWeight.w600)),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () => editar(index)),
-                  IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => eliminar(index)),
-                ],
-              ),
-              children: esPisos
-                  ? tipos.map((t) => ListTile(
-                dense: true,
-                contentPadding: const EdgeInsets.only(left: 32, right: 12),
-                title: Text(t),
-                trailing: IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () => editarTipo(inmueble, t)),
-              )).toList()
-                  : const [],
+          return ListTile(
+            title: Text(subcategorias[index]),
+            trailing: IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () => eliminar(index),
             ),
           );
         },
@@ -11767,3 +9118,4 @@ class _SelectorMesState extends State<SelectorMes> {
     );
   }
 }
+
