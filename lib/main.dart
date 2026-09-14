@@ -6,6 +6,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:file_picker/file_picker.dart';
@@ -426,13 +427,13 @@ class ServicioDivisas {
 const String googleServerClientId =
     '32193813079-q9461ho6s57j7k6c46tgcm3p9d51uip5.apps.googleusercontent.com';
 
-class ServicioGoogleDrive {
+class ServicioFirebase {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   GoogleSignInAccount? _googleAccount;
 
   User? get usuario => _auth.currentUser;
-  bool get tieneDriveAutorizado => _auth.currentUser != null;
+  bool get tieneSesion => _auth.currentUser != null;
 
   Future<void> inicializar() async {
     if (!kIsWeb) {
@@ -530,25 +531,12 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   bool _mostrarOpcionesFab = false;
   String? _filtroMovimientosInicio;
   bool _mostrarProximosMovimientos = false;
-
-  Future<void> abrirBuscadorMovimientos() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BuscadorMovimientosPage(
-          movimientos: movimientos,
-          onMovimientoTap: mostrarDetalleMovimiento,
-          onMovimientoLongPress: mostrarOpcionesMovimiento,
-        ),
-      ),
-    );
-  }
   Timer? _timerCambiosPendientes;
   Timer? _timerComprobacionSincronizacion;
   Timer? _timerSubidaAutomatica;
 
-  final ServicioGoogleDrive _googleDrive = ServicioGoogleDrive();
-  bool _googleInicializado = false;
+  final ServicioFirebase _firebase = ServicioFirebase();
+  bool _firebaseInicializado = false;
   bool _googleSincronizando = false;
   bool _datosInicialesCargados = false;
   bool _sincronizacionAutomaticaActiva = false;
@@ -566,19 +554,19 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     _timerComprobacionSincronizacion = Timer.periodic(const Duration(seconds: 10), (_) {
       if (mounted) _comprobarSincronizacionAutomatica();
     });
-    _inicializarGoogle();
+    _inicializarFirebase();
     cargarDatos();
   }
 
-  Future<void> _inicializarGoogle() async {
+  Future<void> _inicializarFirebase() async {
     try {
-      await _googleDrive.inicializar();
-      _googleInicializado = true;
-      await _googleDrive.prepararSesionExistente();
+      await _firebase.inicializar();
+      _firebaseInicializado = true;
+      await _firebase.prepararSesionExistente();
       if (mounted) setState(() {});
       await _inicializarSincronizacionAutomaticaSiProcede();
     } catch (_) {
-      _googleInicializado = false;
+      _firebaseInicializado = false;
       if (mounted) setState(() {});
     }
   }
@@ -981,8 +969,8 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   }
 
   Future<void> _inicializarSincronizacionAutomaticaSiProcede() async {
-    if (!_datosInicialesCargados || !_googleInicializado ||
-        _sincronizacionAutomaticaActiva || _googleDrive.usuario == null) return;
+    if (!_datosInicialesCargados || !_firebaseInicializado ||
+        _sincronizacionAutomaticaActiva || _firebase.usuario == null) return;
     _sincronizacionAutomaticaActiva = true;
     await _comprobarSincronizacionAutomatica();
   }
@@ -994,25 +982,25 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   }
 
   Future<void> _subirCambiosAutomaticamente() async {
-    if (!_sincronizacionAutomaticaActiva || _sincronizacionEnCurso || _aplicandoDatosRemotos || _googleDrive.usuario == null) return;
+    if (!_sincronizacionAutomaticaActiva || _sincronizacionEnCurso || _aplicandoDatosRemotos || _firebase.usuario == null) return;
     try {
       _sincronizacionEnCurso = true;
-      await _googleDrive.subirDatos(_datosParaSincronizar());
+      await _firebase.subirDatos(_datosParaSincronizar());
     } catch (_) {} finally { _sincronizacionEnCurso = false; }
   }
 
   Future<void> _comprobarSincronizacionAutomatica() async {
-    if (!_sincronizacionAutomaticaActiva || _sincronizacionEnCurso || !_datosInicialesCargados || _aplicandoDatosRemotos || _googleDrive.usuario == null) return;
+    if (!_sincronizacionAutomaticaActiva || _sincronizacionEnCurso || !_datosInicialesCargados || _aplicandoDatosRemotos || _firebase.usuario == null) return;
     try {
       _sincronizacionEnCurso = true;
-      final datosRemotos = await _googleDrive.descargarDatos();
+      final datosRemotos = await _firebase.descargarDatos();
       if (datosRemotos == null) {
         if (_ultimaModificacionLocal == null) {
           _ultimaModificacionLocal = DateTime.now().toUtc().toIso8601String();
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('ultima_modificacion_local', _ultimaModificacionLocal!);
         }
-        await _googleDrive.subirDatos(_datosParaSincronizar());
+        await _firebase.subirDatos(_datosParaSincronizar());
         return;
       }
       final fechaRemota = _fechaDeDatosRemotos(datosRemotos);
@@ -1022,7 +1010,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       } else if (fechaRemota != null && fechaLocal != null && fechaRemota.isAfter(fechaLocal)) {
         await _aplicarDatosSincronizados(datosRemotos);
       } else if (fechaLocal != null && (fechaRemota == null || fechaLocal.isAfter(fechaRemota))) {
-        await _googleDrive.subirDatos(_datosParaSincronizar());
+        await _firebase.subirDatos(_datosParaSincronizar());
       }
     } catch (_) {} finally { _sincronizacionEnCurso = false; }
   }
@@ -1036,7 +1024,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
         _ultimaModificacionLocal = DateTime.now().toUtc().toIso8601String();
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('ultima_modificacion_local', _ultimaModificacionLocal!);
-        await _googleDrive.subirDatos(_datosParaSincronizar());
+        await _firebase.subirDatos(_datosParaSincronizar());
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Datos sincronizados con Google')));
       } finally { if (mounted) setState(() => _googleSincronizando = false); }
     } catch (e) {
@@ -1051,7 +1039,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       if (!mounted) return;
       setState(() => _googleSincronizando = true);
       try {
-        final datos = await _googleDrive.descargarDatos();
+        final datos = await _firebase.descargarDatos();
         if (datos == null) throw Exception('No existe todavía una copia sincronizada.');
         await _aplicarDatosSincronizados(datos);
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Datos restaurados desde Google')));
@@ -1106,10 +1094,10 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
 
   Future<void> conectarGoogleDesdeAjustes() async {
     try {
-      if (!_googleInicializado) await _inicializarGoogle();
-      if (_googleDrive.usuario == null) await _googleDrive.iniciarSesion();
+      if (!_firebaseInicializado) await _inicializarFirebase();
+      if (_firebase.usuario == null) await _firebase.iniciarSesion();
       if (!mounted) return;
-      final usuario = _googleDrive.usuario;
+      final usuario = _firebase.usuario;
       if (usuario == null) throw Exception('No se ha podido conectar la cuenta.');
       _sincronizacionAutomaticaActiva = true;
       setState(() {});
@@ -1123,7 +1111,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
 
   Future<void> desconectarGoogleDesdeAjustes() async {
     try {
-      await _googleDrive.cerrarSesion();
+      await _firebase.cerrarSesion();
       _sincronizacionAutomaticaActiva = false;
       if (mounted) {
         setState(() {});
@@ -1136,9 +1124,9 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   }
 
   Future<void> _asegurarGoogleDrive() async {
-    if (!_googleInicializado) await _inicializarGoogle();
-    if (_googleDrive.usuario == null) await conectarGoogleDesdeAjustes();
-    if (_googleDrive.usuario == null) throw Exception('No se ha podido iniciar sesión con Google.');
+    if (!_firebaseInicializado) await _inicializarFirebase();
+    if (_firebase.usuario == null) await conectarGoogleDesdeAjustes();
+    if (_firebase.usuario == null) throw Exception('No se ha podido iniciar sesión con Google.');
   }
 
   Future<void> guardarDatos({bool marcarComoCambioLocal = true}) async {
@@ -3146,12 +3134,15 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('PastApp'),
+        title:
+        const Text(
+          'PastApp',
+        ),
         actions: [
           IconButton(
-            tooltip: 'Buscar movimientos',
-            onPressed: abrirBuscadorMovimientos,
+            tooltip: 'Buscar',
             icon: const Icon(Icons.search),
+            onPressed: abrirBuscador,
           ),
         ],
       ),
@@ -3328,16 +3319,6 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                         .chevron_right,
                   ),
                 ),
-                const SizedBox(width: 4),
-                OutlinedButton(
-                  onPressed: () {
-                    final hoy = DateTime.now();
-                    setState(() {
-                      mesSeleccionado = DateTime(hoy.year, hoy.month, 1);
-                    });
-                  },
-                  child: const Text('Hoy'),
-                ),
               ],
             ),
 
@@ -3437,10 +3418,37 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                   ? '${esGasto ? '-' : '+'}${cantidadOriginal.toStringAsFixed(2).replaceAll('.', ',')} $monedaMovimiento'
                   : '${esAjuste ? (cantidad >= 0 ? '+' : '') : (esGasto ? '-' : '+')}${formatearEuros(cantidad.abs())}';
 
+              Timer? temporizadorMantener;
+
               return Card(
                 child: GestureDetector(
                   onTap: () => mostrarDetalleMovimiento(movimiento),
-                  onDoubleTap: () => mostrarOpcionesMovimiento(movimiento),
+                  onLongPressDown: kIsWeb
+                      ? null
+                      : (_) {
+                    temporizadorMantener?.cancel();
+                    temporizadorMantener = Timer(
+                      const Duration(milliseconds: 650),
+                          () async {
+                        await HapticFeedback.lightImpact();
+                        if (mounted) {
+                          await Future.delayed(const Duration(milliseconds: 90));
+                          if (mounted) {
+                            await mostrarOpcionesMovimiento(movimiento);
+                          }
+                        }
+                      },
+                    );
+                  },
+                  onLongPressCancel: kIsWeb
+                      ? null
+                      : () => temporizadorMantener?.cancel(),
+                  onLongPressEnd: kIsWeb
+                      ? null
+                      : (_) => temporizadorMantener?.cancel(),
+                  onDoubleTap: kIsWeb
+                      ? () => mostrarOpcionesMovimiento(movimiento)
+                      : null,
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor: const Color(0xFFF1F1F1),
@@ -3885,6 +3893,20 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> abrirBuscador() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BuscadorMovimientosPage(
+          movimientos: movimientos,
+          categoriasGastos: categoriasGastos,
+          categoriasIngresos: categoriasIngresos,
+          onMovimientoTap: mostrarDetalleMovimiento,
+        ),
+      ),
+    );
+  }
+
   Future<void> seleccionarMes() async {
     final resultado =
     await showDialog<DateTime>(
@@ -3939,7 +3961,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
           onExportarDatos: exportarDatos,
           onExportarExcel: exportarExcel,
           onImportarDatos: importarDatos,
-          googleUsuario: _googleDrive.usuario?.email,
+          googleUsuario: _firebase.usuario?.email,
           googleSincronizando: _googleSincronizando,
           onGoogleConectar: conectarGoogleDesdeAjustes,
           onGoogleDesconectar: desconectarGoogleDesdeAjustes,
@@ -4129,7 +4151,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
             onExportarDatos: exportarDatos,
             onExportarExcel: exportarExcel,
             onImportarDatos: importarDatos,
-            googleUsuario: _googleDrive.usuario?.email,
+            googleUsuario: _firebase.usuario?.email,
             googleSincronizando: _googleSincronizando,
             onGoogleConectar: conectarGoogleDesdeAjustes,
             onGoogleDesconectar: desconectarGoogleDesdeAjustes,
@@ -5299,6 +5321,271 @@ class _NuevoMovimientoState
 }
 
 // ============================================================
+// BUSCADOR DE MOVIMIENTOS
+// ============================================================
+
+class BuscadorMovimientosPage extends StatefulWidget {
+  final List<Map<String, dynamic>> movimientos;
+  final List<Map<String, dynamic>> categoriasGastos;
+  final List<Map<String, dynamic>> categoriasIngresos;
+  final Future<void> Function(Map<String, dynamic>) onMovimientoTap;
+
+  const BuscadorMovimientosPage({
+    super.key,
+    required this.movimientos,
+    required this.categoriasGastos,
+    required this.categoriasIngresos,
+    required this.onMovimientoTap,
+  });
+
+  @override
+  State<BuscadorMovimientosPage> createState() => _BuscadorMovimientosPageState();
+}
+
+class _BuscadorMovimientosPageState extends State<BuscadorMovimientosPage> {
+  final TextEditingController palabraController = TextEditingController();
+  final TextEditingController menorController = TextEditingController();
+  final TextEditingController mayorController = TextEditingController();
+  final TextEditingController entreDesdeController = TextEditingController();
+  final TextEditingController entreHastaController = TextEditingController();
+
+  String? tipo;
+  String? categoria;
+  String? subcategoria;
+
+  List<String> get categorias {
+    final todas = <String>{};
+    for (final m in widget.movimientos) {
+      final c = m['categoria']?.toString().trim() ?? '';
+      if (c.isNotEmpty) todas.add(c);
+    }
+    return todas.toList()..sort();
+  }
+
+  List<String> get subcategorias {
+    final todas = <String>{};
+    for (final m in widget.movimientos) {
+      if (categoria != null && categoria!.isNotEmpty && m['categoria']?.toString() != categoria) continue;
+      final s = m['subcategoria']?.toString().trim() ?? '';
+      if (s.isNotEmpty) todas.add(s);
+    }
+    return todas.toList()..sort();
+  }
+
+  double? numero(TextEditingController c) {
+    final t = c.text.trim().replaceAll(',', '.');
+    return t.isEmpty ? null : double.tryParse(t);
+  }
+
+  bool coincide(Map<String, dynamic> m) {
+    if (tipo != null && m['tipo']?.toString() != tipo) return false;
+    if (categoria != null && m['categoria']?.toString() != categoria) return false;
+    if (subcategoria != null && m['subcategoria']?.toString() != subcategoria) return false;
+
+    final q = palabraController.text.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      final texto = [
+        m['tipo'],
+        m['categoria'],
+        m['subcategoria'],
+        m['nota'],
+        m['fecha'],
+        m['moneda'],
+      ].map((e) => e?.toString() ?? '').join(' ').toLowerCase();
+      if (!texto.contains(q)) return false;
+    }
+
+    final cantidad = ((m['cantidad'] as num?) ?? 0).toDouble().abs();
+    final menor = numero(menorController);
+    final mayor = numero(mayorController);
+    final desde = numero(entreDesdeController);
+    final hasta = numero(entreHastaController);
+
+    if (menor != null && cantidad >= menor) return false;
+    if (mayor != null && cantidad <= mayor) return false;
+    if (desde != null && cantidad < desde) return false;
+    if (hasta != null && cantidad > hasta) return false;
+
+    return true;
+  }
+
+  List<Map<String, dynamic>> get resultados {
+    final lista = widget.movimientos.where(coincide).toList();
+    lista.sort(compararMovimientosPorFechaHoraDesc);
+    return lista;
+  }
+
+  @override
+  void dispose() {
+    palabraController.dispose();
+    menorController.dispose();
+    mayorController.dispose();
+    entreDesdeController.dispose();
+    entreHastaController.dispose();
+    super.dispose();
+  }
+
+  Widget campoImporte(String etiqueta, TextEditingController controller) {
+    return Expanded(
+      child: TextField(
+        controller: controller,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(
+          labelText: etiqueta,
+          prefixText: '€ ',
+          border: const OutlineInputBorder(),
+        ),
+        onChanged: (_) => setState(() {}),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final listaSub = subcategorias;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Buscar movimientos'),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Column(
+              children: [
+                TextField(
+                  controller: palabraController,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Palabra',
+                    hintText: 'Categoría, nota, fecha, moneda…',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String?>(
+                        value: tipo,
+                        decoration: const InputDecoration(
+                          labelText: 'Tipo',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem<String?>(value: null, child: Text('Todos')),
+                          DropdownMenuItem<String?>(value: 'Gasto', child: Text('Gasto')),
+                          DropdownMenuItem<String?>(value: 'Ingreso', child: Text('Ingreso')),
+                        ],
+                        onChanged: (v) => setState(() => tipo = v),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: DropdownButtonFormField<String?>(
+                        value: categoria,
+                        decoration: const InputDecoration(
+                          labelText: 'Categoría',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          const DropdownMenuItem<String?>(value: null, child: Text('Todas')),
+                          ...categorias.map((c) => DropdownMenuItem<String?>(value: c, child: Text(c))),
+                        ],
+                        onChanged: (v) => setState(() {
+                          categoria = v;
+                          subcategoria = null;
+                        }),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String?>(
+                  value: subcategoria,
+                  decoration: const InputDecoration(
+                    labelText: 'Subcategoría',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(value: null, child: Text('Todas')),
+                    ...listaSub.map((s) => DropdownMenuItem<String?>(value: s, child: Text(s))),
+                  ],
+                  onChanged: (v) => setState(() => subcategoria = v),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    campoImporte('Menor que', menorController),
+                    const SizedBox(width: 8),
+                    campoImporte('Mayor que', mayorController),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    campoImporte('Entre', entreDesdeController),
+                    const SizedBox(width: 8),
+                    campoImporte('y', entreHastaController),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '${resultados.length} resultado${resultados.length == 1 ? '' : 's'}',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          Expanded(
+            child: resultados.isEmpty
+                ? const Center(child: Text('No se han encontrado movimientos'))
+                : ListView.builder(
+              itemCount: resultados.length,
+              itemBuilder: (_, i) {
+                final m = resultados[i];
+                final gasto = m['tipo'] == 'Gasto';
+                final ajuste = m['tipo'] == 'Ajuste';
+                final cantidad = ((m['cantidad'] as num?) ?? 0).toDouble();
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0xFFF1F1F1),
+                    child: Text(m['emoji'] ?? (gasto ? '💸' : '💰')),
+                  ),
+                  title: Text(m['categoria']?.toString() ?? m['tipo']?.toString() ?? ''),
+                  subtitle: Text([
+                    m['fecha']?.toString() ?? '',
+                    if ((m['subcategoria']?.toString() ?? '').isNotEmpty) m['subcategoria'].toString(),
+                    if ((m['nota']?.toString().trim() ?? '').isNotEmpty) '📝 ${m['nota']}',
+                  ].join(' · ')),
+                  trailing: Text(
+                    '${ajuste ? (cantidad >= 0 ? '+' : '') : (gasto ? '-' : '+')}${formatearEuros(cantidad.abs())}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: ajuste ? Colors.orange : (gasto ? Colors.red : Colors.green),
+                    ),
+                  ),
+                  onTap: () => widget.onMovimientoTap(m),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
 // CALENDARIO
 // ============================================================
 
@@ -5382,6 +5669,25 @@ class _CalendarioState
         const Text(
           'Calendario',
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Buscar',
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BuscadorMovimientosPage(
+                    movimientos: widget.movimientos,
+                    categoriasGastos: const [],
+                    categoriasIngresos: const [],
+                    onMovimientoTap: widget.onMovimientoTap,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
 
       body:
@@ -5721,6 +6027,8 @@ class _CalendarioState
                             0)
                             .toDouble();
 
+                        Timer? temporizadorMantener;
+
                         return GestureDetector(
                           onTap: () {
                             Navigator.pop(context);
@@ -5730,14 +6038,43 @@ class _CalendarioState
                               }
                             });
                           },
-                          onDoubleTap: () {
+                          onLongPressDown: kIsWeb
+                              ? null
+                              : (_) {
+                            temporizadorMantener?.cancel();
+                            temporizadorMantener = Timer(
+                              const Duration(milliseconds: 650),
+                                  () async {
+                                await HapticFeedback.lightImpact();
+                                if (mounted) {
+                                  await Future.delayed(const Duration(milliseconds: 90));
+                                  if (mounted) {
+                                    Navigator.pop(context);
+                                    await Future.delayed(const Duration(milliseconds: 120));
+                                    if (mounted) {
+                                      await widget.onMovimientoLongPress(m);
+                                    }
+                                  }
+                                }
+                              },
+                            );
+                          },
+                          onLongPressCancel: kIsWeb
+                              ? null
+                              : () => temporizadorMantener?.cancel(),
+                          onLongPressEnd: kIsWeb
+                              ? null
+                              : (_) => temporizadorMantener?.cancel(),
+                          onDoubleTap: kIsWeb
+                              ? () {
                             Navigator.pop(context);
                             Future.delayed(const Duration(milliseconds: 120), () {
                               if (mounted) {
                                 widget.onMovimientoLongPress(m);
                               }
                             });
-                          },
+                          }
+                              : null,
                           child: ListTile(
                             leading:
                             CircleAvatar(
@@ -9010,205 +9347,6 @@ class _NuevaCorreccionPageState extends State<NuevaCorreccionPage> {
 // ============================================================
 // SELECTOR DE MES
 // ============================================================
-
-
-
-class BuscadorMovimientosPage extends StatefulWidget {
-  final List<Map<String, dynamic>> movimientos;
-  final Future<void> Function(Map<String, dynamic>) onMovimientoTap;
-  final Future<void> Function(Map<String, dynamic>) onMovimientoLongPress;
-
-  const BuscadorMovimientosPage({
-    super.key,
-    required this.movimientos,
-    required this.onMovimientoTap,
-    required this.onMovimientoLongPress,
-  });
-
-  @override
-  State<BuscadorMovimientosPage> createState() => _BuscadorMovimientosPageState();
-}
-
-class _BuscadorMovimientosPageState extends State<BuscadorMovimientosPage> {
-  final palabraController = TextEditingController();
-  final importeController = TextEditingController();
-  final importeHastaController = TextEditingController();
-  String? categoria;
-  String? subcategoria;
-  String modoImporte = 'Sin filtro';
-
-  @override
-  void dispose() {
-    palabraController.dispose();
-    importeController.dispose();
-    importeHastaController.dispose();
-    super.dispose();
-  }
-
-  double? numero(String texto) => double.tryParse(
-    texto.trim().replaceAll('€', '').replaceAll(' ', '').replaceAll(',', '.'),
-  );
-
-  List<String> get categorias {
-    final r = <String>{};
-    for (final m in widget.movimientos) {
-      final v = m['categoria']?.toString().trim();
-      if (v != null && v.isNotEmpty) r.add(v);
-    }
-    return r.toList()..sort();
-  }
-
-  List<String> get subcategoriasDisponibles {
-    final r = <String>{};
-    for (final m in widget.movimientos) {
-      if (categoria != null && m['categoria']?.toString() != categoria) continue;
-      final v = m['subcategoria']?.toString().trim();
-      if (v != null && v.isNotEmpty) r.add(v);
-    }
-    return r.toList()..sort();
-  }
-
-  bool coincide(Map<String, dynamic> m) {
-    final q = palabraController.text.trim().toLowerCase();
-    if (q.isNotEmpty) {
-      final texto = [m['tipo'], m['categoria'], m['subcategoria'], m['nota'], m['fecha'], m['moneda']]
-          .where((v) => v != null).join(' ').toLowerCase();
-      if (!texto.contains(q)) return false;
-    }
-    if (categoria != null && m['categoria']?.toString() != categoria) return false;
-    if (subcategoria != null && m['subcategoria']?.toString() != subcategoria) return false;
-
-    final importe = ((m['cantidad'] as num?) ?? 0).toDouble().abs();
-    final x = numero(importeController.text);
-    final y = numero(importeHastaController.text);
-    if (modoImporte == 'Exacto' && (x == null || (importe - x).abs() > 0.005)) return false;
-    if (modoImporte == 'Mayor que' && (x == null || importe <= x)) return false;
-    if (modoImporte == 'Menor que' && (x == null || importe >= x)) return false;
-    if (modoImporte == 'Entre' && (x == null || y == null || importe < x || importe > y)) return false;
-    return true;
-  }
-
-  void limpiar() {
-    palabraController.clear();
-    importeController.clear();
-    importeHastaController.clear();
-    setState(() { categoria = null; subcategoria = null; modoImporte = 'Sin filtro'; });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final resultados = widget.movimientos.where(coincide).toList()
-      ..sort(compararMovimientosPorFechaHoraDesc);
-    final subs = subcategoriasDisponibles;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Buscar movimientos'),
-        actions: [TextButton(onPressed: limpiar, child: const Text('Limpiar'))],
-      ),
-      body: Column(children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Column(children: [
-            TextField(
-              controller: palabraController,
-              decoration: const InputDecoration(
-                labelText: 'Palabra',
-                hintText: 'Concepto, nota, categoría o subcategoría',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 10),
-            Row(children: [
-              Expanded(child: DropdownButtonFormField<String?>(
-                value: categoria,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Categoría', border: OutlineInputBorder()),
-                items: [const DropdownMenuItem<String?>(value: null, child: Text('Todas')), ...categorias.map((v) => DropdownMenuItem<String?>(value: v, child: Text(v)))],
-                onChanged: (v) => setState(() { categoria = v; subcategoria = null; }),
-              )),
-              const SizedBox(width: 10),
-              Expanded(child: DropdownButtonFormField<String?>(
-                value: subcategoria,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Subcategoría', border: OutlineInputBorder()),
-                items: [const DropdownMenuItem<String?>(value: null, child: Text('Todas')), ...subs.map((v) => DropdownMenuItem<String?>(value: v, child: Text(v)))],
-                onChanged: (v) => setState(() => subcategoria = v),
-              )),
-            ]),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
-              value: modoImporte,
-              decoration: const InputDecoration(labelText: 'Importe', border: OutlineInputBorder()),
-              items: const [
-                DropdownMenuItem(value: 'Sin filtro', child: Text('Sin filtro')),
-                DropdownMenuItem(value: 'Exacto', child: Text('Exacto')),
-                DropdownMenuItem(value: 'Mayor que', child: Text('Mayor que X')),
-                DropdownMenuItem(value: 'Menor que', child: Text('Menor que X')),
-                DropdownMenuItem(value: 'Entre', child: Text('Entre X e Y')),
-              ],
-              onChanged: (v) => setState(() => modoImporte = v ?? 'Sin filtro'),
-            ),
-            if (modoImporte != 'Sin filtro') ...[
-              const SizedBox(height: 10),
-              Row(children: [
-                Expanded(child: TextField(
-                  controller: importeController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(labelText: modoImporte == 'Entre' ? 'Desde X' : 'Importe X', prefixText: '€ ', border: const OutlineInputBorder()),
-                  onChanged: (_) => setState(() {}),
-                )),
-                if (modoImporte == 'Entre') ...[
-                  const SizedBox(width: 10),
-                  Expanded(child: TextField(
-                    controller: importeHastaController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Hasta Y', prefixText: '€ ', border: OutlineInputBorder()),
-                    onChanged: (_) => setState(() {}),
-                  )),
-                ],
-              ]),
-            ],
-          ]),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: Align(alignment: Alignment.centerLeft, child: Text('${resultados.length} movimiento${resultados.length == 1 ? '' : 's'}', style: const TextStyle(fontWeight: FontWeight.w600))),
-        ),
-        const Divider(height: 1),
-        Expanded(child: resultados.isEmpty
-            ? const Center(child: Text('No hay movimientos que coincidan.'))
-            : ListView.separated(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-          itemCount: resultados.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 4),
-          itemBuilder: (_, i) {
-            final m = resultados[i];
-            final gasto = m['tipo'] == 'Gasto';
-            final ajuste = m['tipo'] == 'Ajuste';
-            final cantidad = ((m['cantidad'] as num?) ?? 0).toDouble();
-            final importe = ajuste
-                ? '${cantidad >= 0 ? '+' : ''}${formatearEuros(cantidad.abs())}'
-                : '${gasto ? '-' : '+'}${formatearEuros(cantidad.abs())}';
-            return Card(child: ListTile(
-              leading: CircleAvatar(child: Text(m['emoji']?.toString() ?? (gasto ? '💸' : '💰'))),
-              title: Text(m['categoria']?.toString() ?? m['tipo'].toString()),
-              subtitle: Text([
-                m['fecha']?.toString() ?? '',
-                if (m['subcategoria']?.toString().trim().isNotEmpty ?? false) m['subcategoria'].toString(),
-                if (m['nota']?.toString().trim().isNotEmpty ?? false) '📝',
-              ].join(' · ')),
-              trailing: Text(importe, style: TextStyle(fontWeight: FontWeight.bold, color: ajuste ? Colors.orange : (gasto ? Colors.red : Colors.green))),
-              onTap: () => widget.onMovimientoTap(m),
-              onLongPress: () => widget.onMovimientoLongPress(m),
-            ));
-          },
-        )),
-      ]),
-    );
-  }
-}
 
 class SelectorMes extends StatefulWidget {
   final DateTime inicial;
