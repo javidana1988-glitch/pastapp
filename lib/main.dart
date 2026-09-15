@@ -101,7 +101,7 @@ class _MisFinanzasAppState extends State<MisFinanzasApp> {
     if (cargandoTema) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'Mis Finanzas',
+        title: 'PastApp',
         theme: temaClaro(),
         home: const Scaffold(
           body: Center(child: CircularProgressIndicator()),
@@ -111,7 +111,7 @@ class _MisFinanzasAppState extends State<MisFinanzasApp> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Mis Finanzas',
+      title: 'PastApp',
       theme: temaClaro(),
       darkTheme: temaOscuro(),
       themeMode: modoOscuro ? ThemeMode.dark : ThemeMode.light,
@@ -2801,7 +2801,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
 
     await SharePlus.instance.share(
       ShareParams(
-        text: 'Exportación de Mis Finanzas en Excel',
+        text: 'Exportación de PastApp en Excel',
         files: [XFile(archivo.path)],
       ),
     );
@@ -2853,7 +2853,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
 
     await SharePlus.instance.share(
       ShareParams(
-        text: 'Copia de seguridad de Mis Finanzas',
+        text: 'Copia de seguridad de PastApp',
         files: [XFile(archivo.path)],
       ),
     );
@@ -3601,7 +3601,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                         Expanded(
                           child: TextField(
                             controller: cantidadController,
-                            autofocus: true,
+
                             keyboardType:
                             const TextInputType.numberWithOptions(
                               decimal: true,
@@ -3987,7 +3987,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                     const SizedBox(height: 16),
                     TextField(
                       controller: cantidadController,
-                      autofocus: true,
+
                       keyboardType:
                       const TextInputType.numberWithOptions(
                         decimal: true,
@@ -6026,7 +6026,7 @@ class _BuscadorMonedaSheetState extends State<BuscadorMonedaSheet> {
               const SizedBox(height: 10),
               TextField(
                 controller: controller,
-                autofocus: true,
+
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.search),
                   hintText: 'País, moneda o código',
@@ -6865,32 +6865,83 @@ class _NuevoMovimientoState
                 ),
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: categorias.map((c) {
-                  final nombre = c['nombre']?.toString() ?? '';
-                  return ChoiceChip(
-                    selected: categoria == nombre,
-                    avatar: Text(
-                      c['emoji']?.toString() ?? '💰',
-                      style: const TextStyle(fontSize: 17),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final ancho = constraints.maxWidth;
+                  final columnas = ancho >= 900 ? 7 : (ancho >= 600 ? 6 : 4);
+                  final anchoCelda = (ancho - ((columnas - 1) * 8)) / columnas;
+
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: categorias.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columnas,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 10,
+                      mainAxisExtent: 82,
                     ),
-                    label: Text(nombre),
-                    onSelected: (_) {
-                      if (categoria == nombre) {
-                        setState(() {
-                          categoria = null;
-                          subcategoria = null;
-                          subsubcategoria = null;
-                          paso = 1;
-                        });
-                      } else {
-                        seleccionarCategoria(c);
-                      }
+                    itemBuilder: (context, index) {
+                      final c = categorias[index];
+                      final nombre = c['nombre']?.toString() ?? '';
+                      final seleccionado = categoria == nombre;
+
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () {
+                          if (seleccionado) {
+                            setState(() {
+                              categoria = null;
+                              subcategoria = null;
+                              subsubcategoria = null;
+                              paso = 1;
+                            });
+                          } else {
+                            seleccionarCategoria(c);
+                          }
+                        },
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              width: anchoCelda.clamp(52.0, 78.0),
+                              height: 54,
+                              decoration: BoxDecoration(
+                                color: seleccionado
+                                    ? Theme.of(context).colorScheme.primaryContainer
+                                    : Theme.of(context).colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: seleccionado
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(context).dividerColor,
+                                  width: seleccionado ? 2 : 1,
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                c['emoji']?.toString() ?? '💰',
+                                style: const TextStyle(fontSize: 27),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              nombre,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: seleccionado ? FontWeight.w700 : FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
                     },
                   );
-                }).toList(),
+                },
               ),
               if (categoria != null && subcategorias.isNotEmpty) ...[
                 const SizedBox(height: 18),
@@ -6976,7 +7027,7 @@ class _NuevoMovimientoState
               const SizedBox(height: 8),
               TextField(
                 controller: cantidadController,
-                autofocus: true,
+
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -7305,7 +7356,7 @@ class _BuscadorMovimientosPageState extends State<BuscadorMovimientosPage> {
               children: [
                 TextField(
                   controller: palabraController,
-                  autofocus: true,
+
                   decoration: const InputDecoration(
                     labelText: 'Palabra',
                     hintText: 'Categoría, nota, fecha, moneda…',
@@ -10589,7 +10640,7 @@ class _NuevaSubcategoriaPageState extends State<NuevaSubcategoriaPage> {
           children: [
             TextField(
               controller: controller,
-              autofocus: true,
+
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => guardar(),
               decoration: const InputDecoration(
@@ -10676,7 +10727,7 @@ class _GestionSubcategoriasPageState extends State<GestionSubcategoriasPage> {
         title: const Text('Editar subcategoría'),
         content: TextField(
           controller: controller,
-          autofocus: true,
+
           decoration: const InputDecoration(labelText: 'Nombre'),
         ),
         actions: [
@@ -10730,7 +10781,7 @@ class _GestionSubcategoriasPageState extends State<GestionSubcategoriasPage> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Editar tipo de gasto'),
-        content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(labelText: 'Nombre')),
+        content: TextField(controller: controller,  decoration: const InputDecoration(labelText: 'Nombre')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(onPressed: () { final v = controller.text.trim(); if (v.isNotEmpty) Navigator.pop(context, v); }, child: const Text('Guardar')),
@@ -11524,7 +11575,7 @@ class _GestionPatrimonioPageState extends State<GestionPatrimonioPage> {
 
   Future<void> anadir() async {
     final nombre = TextEditingController(); final emoji = TextEditingController(text: '💰');
-    final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(title: const Text('Nueva categoría'), content: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: nombre, autofocus: true, decoration: const InputDecoration(labelText: 'Nombre')), TextField(controller: emoji, decoration: const InputDecoration(labelText: 'Emoji'))]), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')), ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Añadir'))]));
+    final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(title: const Text('Nueva categoría'), content: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: nombre,  decoration: const InputDecoration(labelText: 'Nombre')), TextField(controller: emoji, decoration: const InputDecoration(labelText: 'Emoji'))]), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')), ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Añadir'))]));
     if (ok == true && nombre.text.trim().isNotEmpty && !categorias.any((c) => c['nombre']?.toLowerCase() == nombre.text.trim().toLowerCase())) setState(() => categorias.add({'nombre': nombre.text.trim(), 'emoji': emoji.text.trim().isEmpty ? '💰' : emoji.text.trim()}));
     nombre.dispose(); emoji.dispose();
   }
@@ -11603,7 +11654,7 @@ class _NuevaCorreccionPageState extends State<NuevaCorreccionPage> {
             const SizedBox(height: 20),
             TextField(
               controller: controller,
-              autofocus: true,
+
               keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => guardar(),
