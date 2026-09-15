@@ -2080,6 +2080,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   String? _ultimaModificacionLocal;
   bool _cambiosLocalesPendientesDeSubir = false;
   String? _ultimoErrorSincronizacion;
+  bool _tareasInicialesSegundoPlanoProgramadas = false;
 
   @override
   void initState() {
@@ -2732,15 +2733,29 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       cargando = false;
     });
 
-    // Primero sincronizamos con Firebase. Así una copia local antigua no
-    // puede sobrescribir una versión más reciente que ya está en la nube.
+    // La interfaz ya está preparada. La sincronización inicial sigue teniendo
+    // prioridad, pero las tareas pesadas de recurrencias y divisas se ejecutan
+    // después del primer frame para evitar bloquear el navegador al arrancar.
     _datosInicialesCargados = true;
     await _inicializarSincronizacionAutomaticaSiProcede();
+    _programarTareasInicialesEnSegundoPlano();
+  }
 
-    // Una vez cargada la versión correcta, generamos recurrencias y resolvemos
-    // monedas pendientes. Las conversiones resueltas se suben inmediatamente.
-    await generarRecurrentesPendientes();
-    await actualizarCambiosPendientes();
+  void _programarTareasInicialesEnSegundoPlano() {
+    if (_tareasInicialesSegundoPlanoProgramadas) return;
+    _tareasInicialesSegundoPlanoProgramadas = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      if (!mounted) return;
+      try {
+        await generarRecurrentesPendientes();
+        await actualizarCambiosPendientes();
+      } catch (_) {
+        // Son tareas auxiliares: un fallo no debe bloquear la interfaz.
+      }
+    });
   }
 
   List<Map<String, dynamic>> copiarCategorias(
@@ -3019,8 +3034,17 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     if (fechaRemota != null) _ultimaModificacionLocal = fechaRemota.toUtc().toIso8601String();
     try {
       await guardarDatos(marcarComoCambioLocal: false);
-      await generarRecurrentesPendientes();
     } finally { _aplicandoDatosRemotos = false; }
+
+    // La reconstrucción de recurrencias puede recorrer miles de movimientos.
+    // Se pospone para no bloquear el primer render tras una sincronización.
+    if (mounted) {
+      Future<void>.delayed(const Duration(milliseconds: 50), () async {
+        if (!mounted) return;
+        await generarRecurrentesPendientes();
+        await actualizarCambiosPendientes();
+      });
+    }
   }
 
   Future<void> conectarGoogleDesdeAjustes() async {
@@ -3489,6 +3513,20 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     // Las recurrencias se mantienen durante 100 años, tanto en Web como en Android.
     final limite = DateTime(ahora.year + 100, ahora.month, ahora.day);
 
+    // Evita una búsqueda O(n) por cada ocurrencia futura. Con muchos
+    // movimientos, el Set reduce muchísimo el trabajo de arranque.
+    final clavesRecurrenciasExistentes = <String>{};
+    for (final movimiento in movimientos) {
+      final recurrenceId = movimiento['recurrenceId']?.toString();
+      final fechaExistente = movimiento['fecha']?.toString();
+      if (recurrenceId != null && recurrenceId.isNotEmpty &&
+          fechaExistente != null && fechaExistente.isNotEmpty) {
+        clavesRecurrenciasExistentes.add('$recurrenceId|$fechaExistente');
+      }
+    }
+
+    var iteracionesDesdeUltimoYield = 0;
+
     for (final recurrente in recurrentes) {
       final fechaOriginal = convertirFecha(
         recurrente['fecha']?.toString() ?? '',
@@ -3522,12 +3560,11 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
           recurrente['recurrenciasOmitidas'] ?? const [],
         );
 
-        final yaExiste = movimientos.any((m) {
-          return m['recurrenceId'] == recurrente['id'] &&
-              m['fecha'] == fechaTexto(fecha);
-        });
+        final fechaNuevaTexto = fechaTexto(fecha);
+        final claveNueva = '${recurrente['id']}|$fechaNuevaTexto';
+        final yaExiste = clavesRecurrenciasExistentes.contains(claveNueva);
 
-        if (!yaExiste && !omitidas.contains(fechaTexto(fecha))) {
+        if (!yaExiste && !omitidas.contains(fechaNuevaTexto)) {
           movimientos.add({
             'id': DateTime.now().microsecondsSinceEpoch.toString(),
             'cantidad': recurrente['plantillaCantidad'] ?? recurrente['cantidad'],
@@ -3552,10 +3589,16 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
             'intervaloMeses': intervalo,
             'recurrenceId': recurrente['id'],
           });
+          clavesRecurrenciasExistentes.add(claveNueva);
           huboCambios = true;
         }
 
         fecha = sumarMeses(fecha, intervalo);
+        iteracionesDesdeUltimoYield++;
+        if (iteracionesDesdeUltimoYield >= 250) {
+          iteracionesDesdeUltimoYield = 0;
+          await Future<void>.delayed(Duration.zero);
+        }
       }
     }
 
@@ -5408,26 +5451,9 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   // ==========================================================
 
   Widget pantallaInicio() {
-    final movimientosMes = movimientosDelMes(
-      mesSeleccionado,
-    );
-
-    final movimientosMesFiltrados = _filtroMovimientosInicio == null
-        ? movimientosMes
-        : movimientosMes
-        .where((m) => m['tipo'] == _filtroMovimientosInicio)
-        .toList();
-
-    final ingresos = ingresosMes(
-      mesSeleccionado,
-    );
-
-    final gastos = gastosMes(
-      mesSeleccionado,
-    );
-
     final hoy = DateTime.now();
     final inicioHoy = DateTime(hoy.year, hoy.month, hoy.day);
+    final finHoy = inicioHoy.add(const Duration(days: 1));
     final inicioMesSeleccionado = DateTime(
       mesSeleccionado.year,
       mesSeleccionado.month,
@@ -5442,18 +5468,95 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
         mesSeleccionado.year == hoy.year &&
             mesSeleccionado.month == hoy.month;
 
-    // Usamos la misma lista que alimenta el resumen mensual, que incluye
-    // tanto movimientos normales como históricos. Los históricos aparecen
-    // virtualmente el día 1 de su mes y pueden editarse desde Inicio.
+    // Un único recorrido de movimientos para construir Inicio. La versión
+    // anterior recorría la lista varias veces (mes + ingresos + gastos +
+    // balance anual), algo costoso con decenas de miles de movimientos.
+    final movimientosMes = <Map<String, dynamic>>[];
+    double ingresos = 0;
+    double gastos = 0;
+    double ajustes = 0;
+    double ingresosAnoSeleccionado = 0;
+    double gastosAnoSeleccionado = 0;
+    double ajustesAnoSeleccionado = 0;
+
+    for (final movimiento in movimientos) {
+      final fecha = convertirFecha(movimiento['fecha']?.toString() ?? '');
+      if (fecha.year == 1900) continue;
+
+      final esMes = fecha.year == mesSeleccionado.year &&
+          fecha.month == mesSeleccionado.month;
+      final ocurrio = !fecha.isAfter(inicioHoy);
+      final esAno = fecha.year == mesSeleccionado.year &&
+          fecha.isBefore(finHoy);
+
+      if (esMes) {
+        movimientosMes.add(movimiento);
+        if (ocurrio) {
+          final cantidad = ((movimiento['cantidad'] as num?) ?? 0).toDouble();
+          if (movimiento['tipo'] == 'Ingreso') ingresos += cantidad;
+          if (movimiento['tipo'] == 'Gasto') gastos += cantidad;
+          if (movimiento['tipo'] == 'Ajuste') ajustes += cantidad;
+        }
+      }
+
+      if (esAno && ocurrio) {
+        final cantidad = ((movimiento['cantidad'] as num?) ?? 0).toDouble();
+        if (movimiento['tipo'] == 'Ingreso') ingresosAnoSeleccionado += cantidad;
+        if (movimiento['tipo'] == 'Gasto') gastosAnoSeleccionado += cantidad;
+        if (movimiento['tipo'] == 'Ajuste') ajustesAnoSeleccionado += cantidad;
+      }
+    }
+
+    // Los históricos son virtuales y solo se añaden al mes/año que corresponde.
+    final historicosMes = movimientosHistoricosDelMes(mesSeleccionado);
+    movimientosMes.addAll(historicosMes);
+    for (final historico in historicosMes) {
+      final cantidad = ((historico['cantidad'] as num?) ?? 0).toDouble();
+      if (historico['tipo'] == 'Ingreso') {
+        ingresos += cantidad;
+        ingresosAnoSeleccionado += cantidad;
+      } else if (historico['tipo'] == 'Gasto') {
+        gastos += cantidad;
+        gastosAnoSeleccionado += cantidad;
+      }
+    }
+
+    for (final h in historicos) {
+      final anio = (h['anio'] as num?)?.toInt();
+      if (anio != mesSeleccionado.year) continue;
+      final listaIngresos = (h['ingresos'] as List?) ?? const [];
+      final listaGastos = (h['gastos'] as List?) ?? const [];
+      // Los elementos de historicosMes ya están incluidos arriba para el mes
+      // seleccionado; aquí añadimos solamente los otros meses del mismo año.
+      final mesHistorico = (h['mes'] as num?)?.toInt();
+      if (mesHistorico == mesSeleccionado.month) continue;
+      for (final item in listaIngresos) {
+        if (item is Map) ingresosAnoSeleccionado +=
+            ((item['importe'] as num?) ?? 0).toDouble();
+      }
+      for (final item in listaGastos) {
+        if (item is Map) gastosAnoSeleccionado +=
+            ((item['importe'] as num?) ?? 0).toDouble();
+      }
+    }
+
+    final balanceMesCalculado = ingresos - gastos + ajustes;
+    final balanceAnoCalculado =
+        ingresosAnoSeleccionado - gastosAnoSeleccionado + ajustesAnoSeleccionado;
+
+    final movimientosMesFiltrados = _filtroMovimientosInicio == null
+        ? movimientosMes
+        : movimientosMes
+        .where((m) => m['tipo'] == _filtroMovimientosInicio)
+        .toList();
+
     final listaBase = movimientosMesFiltrados.where((m) {
       final tipo = m['tipo'];
       if (tipo != 'Gasto' && tipo != 'Ingreso' && tipo != 'Ajuste') {
         return false;
       }
-
       final f = convertirFecha(m['fecha']?.toString() ?? '');
-      return !f.isBefore(inicioMesSeleccionado) &&
-          f.isBefore(finMesSeleccionado);
+      return !f.isBefore(inicioMesSeleccionado) && f.isBefore(finMesSeleccionado);
     }).toList();
 
     final movimientosRecientes = listaBase.where((m) {
@@ -5465,13 +5568,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     final movimientosProximos = listaBase.where((m) {
       final f = convertirFecha(m['fecha']?.toString() ?? '');
       if (!f.isAfter(inicioHoy)) return false;
-
-      // En el mes actual no enseñamos las repeticiones automáticas
-      // en "Próximos". Si el usuario cambia a otro mes, sí las puede ver.
-      if (esMesActual && m['recurrente'] == true) {
-        return false;
-      }
-
+      if (esMesActual && m['recurrente'] == true) return false;
       return true;
     }).toList()
       ..sort(compararMovimientosPorFechaHoraAsc);
@@ -5690,7 +5787,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                   child: resumenIcono(
                     Icons.calendar_month,
                     'Balance mes',
-                    balanceMes(mesSeleccionado),
+                    balanceMesCalculado,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -5698,7 +5795,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                   child: resumenIcono(
                     Icons.calendar_today,
                     'Balance año ${mesSeleccionado.year}',
-                    balanceAno(mesSeleccionado.year),
+                    balanceAnoCalculado,
                   ),
                 ),
               ],
