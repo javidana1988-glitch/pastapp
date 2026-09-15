@@ -2446,11 +2446,15 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       cargando = false;
     });
 
-    await guardarDatos(marcarComoCambioLocal: false);
-    await generarRecurrentesPendientes();
-    await actualizarCambiosPendientes();
+    // Primero sincronizamos con Firebase. Así una copia local antigua no
+    // puede sobrescribir una versión más reciente que ya está en la nube.
     _datosInicialesCargados = true;
     await _inicializarSincronizacionAutomaticaSiProcede();
+
+    // Una vez cargada la versión correcta, generamos recurrencias y resolvemos
+    // monedas pendientes. Las conversiones resueltas se suben inmediatamente.
+    await generarRecurrentesPendientes();
+    await actualizarCambiosPendientes();
   }
 
   List<Map<String, dynamic>> copiarCategorias(
@@ -3054,7 +3058,20 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     }
 
     if (cambios) {
-      await guardarDatos();
+      // La conversión ya está calculada: la marcamos como un cambio real y
+      // la subimos directamente a Firebase. No esperamos al temporizador,
+      // porque al recargar la página debe recuperarse ya convertida.
+      await guardarDatos(marcarComoCambioLocal: true);
+
+      if (_firebase.usuario != null) {
+        try {
+          await _firebase.subirDatos(_datosParaSincronizar());
+        } catch (_) {
+          // Si Firebase falla momentáneamente, queda guardado localmente y
+          // la subida automática volverá a intentarlo.
+        }
+      }
+
       if (mounted) setState(() {});
     }
   }
