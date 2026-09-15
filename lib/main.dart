@@ -2728,7 +2728,29 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     if (marcarComoCambioLocal &&
         _datosInicialesCargados &&
         !_aplicandoDatosRemotos) {
-      _programarSubidaAutomatica();
+      // Los cambios hechos por el usuario se suben inmediatamente a Firebase.
+      // El temporizador queda solo como reintento de seguridad. Así, al
+      // recargar la web no vuelve a aparecer la copia anterior.
+      _timerSubidaAutomatica?.cancel();
+
+      if (_firebase.usuario != null) {
+        try {
+          if (_sincronizacionEnCurso) {
+            _programarSubidaAutomatica();
+          } else {
+            _sincronizacionEnCurso = true;
+            try {
+              await _firebase.subirDatos(_datosParaSincronizar());
+            } finally {
+              _sincronizacionEnCurso = false;
+            }
+          }
+        } catch (_) {
+          _programarSubidaAutomatica();
+        }
+      } else {
+        _programarSubidaAutomatica();
+      }
     }
   }
 
