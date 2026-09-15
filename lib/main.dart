@@ -1856,6 +1856,9 @@ class ServicioFirebase {
       'categoriasIngresos',
       'correcciones',
       'categoriasPatrimonio',
+      'seguimientoInmuebles',
+      'deudas',
+      'inversiones',
     ];
 
     final conteos = <String, int>{};
@@ -2050,6 +2053,11 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   categoriasPatrimonioIniciales
       .map((e) => Map<String, String>.from(e))
       .toList();
+
+  // Módulos independientes de gestión.
+  List<Map<String, dynamic>> seguimientoInmuebles = [];
+  List<Map<String, dynamic>> deudas = [];
+  List<Map<String, dynamic>> inversiones = [];
 
   DateTime mesSeleccionado = DateTime.now();
 
@@ -2284,6 +2292,24 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     }).toList();
   }
 
+  List<Map<String, dynamic>> _decodificarListaMapas(String? texto) {
+    if (texto == null || texto.isEmpty) return [];
+    try {
+      final decoded = jsonDecode(texto);
+      if (decoded is! List) return [];
+      return decoded.whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  List<Map<String, dynamic>> _listaMapasRemota(dynamic valor) {
+    if (valor is! List) return [];
+    return valor.whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item)).toList();
+  }
+
   Future<void> cargarDatos() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -2310,6 +2336,9 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     final patrimoniosGuardados = prefs.getString('patrimonios');
     final categoriasPatrimonioGuardadas =
     prefs.getString('categorias_patrimonio');
+    final seguimientoInmueblesGuardado = prefs.getString('seguimiento_inmuebles');
+    final deudasGuardadas = prefs.getString('deudas');
+    final inversionesGuardadas = prefs.getString('inversiones');
 
     setState(() {
       if (movimientosGuardados != null) {
@@ -2416,6 +2445,10 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
         movimiento['tipoCambio'] = ((movimiento['tipoCambio'] as num?) ?? 1).toDouble();
         movimiento['tipoCambioPendiente'] = movimiento['tipoCambioPendiente'] == true;
       }
+
+      seguimientoInmuebles = _decodificarListaMapas(seguimientoInmueblesGuardado);
+      deudas = _decodificarListaMapas(deudasGuardadas);
+      inversiones = _decodificarListaMapas(inversionesGuardadas);
 
       normalizarIdsCategoriasYDatos();
 
@@ -2728,6 +2761,9 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       'historicos': historicos,
       'patrimonios': patrimonios,
       'categoriasPatrimonio': categoriasPatrimonio,
+      'seguimientoInmuebles': seguimientoInmuebles,
+      'deudas': deudas,
+      'inversiones': inversiones,
     };
   }
 
@@ -2943,6 +2979,9 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       return mapa;
     }));
     final nuevasCategoriasPatrimonio = List<Map<String, String>>.from((datos['categoriasPatrimonio'] ?? []).map((item) => Map<String, String>.from(item)));
+    final nuevoSeguimientoInmuebles = _listaMapasRemota(datos['seguimientoInmuebles']);
+    final nuevasDeudas = _listaMapasRemota(datos['deudas']);
+    final nuevasInversiones = _listaMapasRemota(datos['inversiones']);
     setState(() {
       movimientos = nuevosMovimientos;
       categoriasGastos = nuevasCategoriasGastos.isEmpty ? copiarCategorias(categoriasGastosIniciales) : nuevasCategoriasGastos;
@@ -2952,6 +2991,9 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       historicos = nuevosHistoricos;
       patrimonios = nuevosPatrimonios;
       if (nuevasCategoriasPatrimonio.isNotEmpty) categoriasPatrimonio = nuevasCategoriasPatrimonio;
+      seguimientoInmuebles = nuevoSeguimientoInmuebles;
+      deudas = nuevasDeudas;
+      inversiones = nuevasInversiones;
     });
     final fechaRemota = _fechaDeDatosRemotos(datos);
     if (fechaRemota != null) _ultimaModificacionLocal = fechaRemota.toUtc().toIso8601String();
@@ -3043,6 +3085,9 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       'categorias_patrimonio',
       jsonEncode(categoriasPatrimonio),
     );
+    await prefs.setString('seguimiento_inmuebles', jsonEncode(seguimientoInmuebles));
+    await prefs.setString('deudas', jsonEncode(deudas));
+    await prefs.setString('inversiones', jsonEncode(inversiones));
 
     if (marcarComoCambioLocal &&
         _datosInicialesCargados &&
@@ -5478,7 +5523,8 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                     const SizedBox(height: 4),
                     GestureDetector(
                       onTap: abrirPatrimonio,
-                      onDoubleTap: nuevaCorreccion,
+                      onDoubleTap: kIsWeb ? nuevaCorreccion : null,
+                      onLongPress: kIsWeb ? null : nuevaCorreccion,
                       child: Text(
                         formatearEurosRedondeados(saldoPatrimonioActual),
                         style: TextStyle(
@@ -6314,6 +6360,35 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
           modoOscuro: widget.modoOscuro,
           onModoOscuroChanged: widget.onModoOscuroChanged,
         );
+      case 4:
+        return SeguimientoInmueblesPage(
+          inmuebles: seguimientoInmuebles,
+          movimientos: movimientos,
+          onChanged: (datos) async {
+            setState(() => seguimientoInmuebles = datos);
+            await guardarDatos();
+          },
+          onMovimientosChanged: () async {
+            setState(() {});
+            await guardarDatos();
+          },
+        );
+      case 5:
+        return DeudasPage(
+          deudas: deudas,
+          onChanged: (datos) async {
+            setState(() => deudas = datos);
+            await guardarDatos();
+          },
+        );
+      case 6:
+        return InversionesPage(
+          inversiones: inversiones,
+          onChanged: (datos) async {
+            setState(() => inversiones = datos);
+            await guardarDatos();
+          },
+        );
       default:
         return pantallaInicio();
     }
@@ -6416,6 +6491,9 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
             _botonNavegacionWeb(indice: 1, icono: Icons.calendar_month_outlined, iconoSeleccionado: Icons.calendar_month, texto: 'Calendario'),
             _botonNavegacionWeb(indice: 2, icono: Icons.bar_chart_outlined, iconoSeleccionado: Icons.bar_chart, texto: 'Estadísticas'),
             _botonNavegacionWeb(indice: 3, icono: Icons.settings_outlined, iconoSeleccionado: Icons.settings, texto: 'Ajustes'),
+            _botonNavegacionWeb(indice: 4, icono: Icons.home_work_outlined, iconoSeleccionado: Icons.home_work, texto: 'Inmuebles'),
+            _botonNavegacionWeb(indice: 5, icono: Icons.account_balance_outlined, iconoSeleccionado: Icons.account_balance, texto: 'Deudas'),
+            _botonNavegacionWeb(indice: 6, icono: Icons.trending_up_outlined, iconoSeleccionado: Icons.trending_up, texto: 'Inversiones'),
             const Spacer(),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
@@ -6463,7 +6541,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
 
     return Scaffold(
       body: IndexedStack(
-        index: paginaActual > 3 ? 0 : paginaActual,
+        index: paginaActual > 6 ? 0 : paginaActual,
         children: [
           pantallaInicio(),
           Calendario(
@@ -6504,6 +6582,32 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
             modoOscuro: widget.modoOscuro,
             onModoOscuroChanged: widget.onModoOscuroChanged,
           ),
+          SeguimientoInmueblesPage(
+            inmuebles: seguimientoInmuebles,
+            movimientos: movimientos,
+            onChanged: (datos) async {
+              setState(() => seguimientoInmuebles = datos);
+              await guardarDatos();
+            },
+            onMovimientosChanged: () async {
+              setState(() {});
+              await guardarDatos();
+            },
+          ),
+          DeudasPage(
+            deudas: deudas,
+            onChanged: (datos) async {
+              setState(() => deudas = datos);
+              await guardarDatos();
+            },
+          ),
+          InversionesPage(
+            inversiones: inversiones,
+            onChanged: (datos) async {
+              setState(() => inversiones = datos);
+              await guardarDatos();
+            },
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -6511,7 +6615,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
         child: const Icon(Icons.add),
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: paginaActual > 3 ? 0 : paginaActual,
+        selectedIndex: paginaActual > 6 ? 0 : paginaActual,
         onDestinationSelected: (index) {
           setState(() => paginaActual = index);
         },
@@ -6520,6 +6624,9 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
           NavigationDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month), label: 'Calendario'),
           NavigationDestination(icon: Icon(Icons.bar_chart_outlined), selectedIcon: Icon(Icons.bar_chart), label: 'Estadísticas'),
           NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Ajustes'),
+          NavigationDestination(icon: Icon(Icons.home_work_outlined), selectedIcon: Icon(Icons.home_work), label: 'Inmuebles'),
+          NavigationDestination(icon: Icon(Icons.account_balance_outlined), selectedIcon: Icon(Icons.account_balance), label: 'Deudas'),
+          NavigationDestination(icon: Icon(Icons.trending_up_outlined), selectedIcon: Icon(Icons.trending_up), label: 'Inversiones'),
         ],
       ),
     );
@@ -6736,6 +6843,7 @@ class _NuevoMovimientoState
   bool crearSubcategoriaDesdeImporte = false;
 
   int intervaloMeses = 1;
+  DateTime? fechaFinRecurrencia;
 
   String? fotoPath;
 
@@ -6765,6 +6873,7 @@ class _NuevoMovimientoState
       subcategoria =
           existente['subcategoria']
               ?.toString();
+      subsubcategoria = existente['subsubcategoria']?.toString();
 
       moneda = existente['moneda']?.toString() ?? 'EUR';
       monedaController.text = moneda;
@@ -6785,6 +6894,12 @@ class _NuevoMovimientoState
       intervaloMeses =
           (((existente['intervaloMeses'] as num?)?.toInt() ?? 1).clamp(1, 120)).toInt();
       intervaloController.text = intervaloMeses.toString();
+      final finExistente = convertirFecha(
+        existente['fechaFinRecurrencia']?.toString() ??
+            existente['plantillaFechaFinRecurrencia']?.toString() ??
+            '',
+      );
+      fechaFinRecurrencia = finExistente.year == 1900 ? null : finExistente;
 
       notaController.text = existente['nota']?.toString() ?? '';
       fotoPath = existente['fotoPath']?.toString();
@@ -7031,7 +7146,25 @@ class _NuevoMovimientoState
     final actual = categoriaActual;
     if (actual == null || subcategoria == null) return [];
     final mapa = Map<String, dynamic>.from(actual['subsubcategorias'] ?? {});
-    return List<String>.from(mapa[subcategoria] ?? const []);
+    final configuradas = List<String>.from(mapa[subcategoria] ?? const []);
+
+    // Pisos tiene una estructura fija de tres niveles. Si una copia antigua
+    // o una sincronización deja temporalmente vacío el mapa de un inmueble,
+    // no ocultamos los tipos de gasto: los reconstruimos de forma segura.
+    if (actual['nombre']?.toString() == 'Pisos' && configuradas.isEmpty &&
+        subcategoria != 'Otros') {
+      return const [
+        'IBI',
+        'Comunidad',
+        'Electrodomésticos',
+        'Seguro hogar',
+        'Obras',
+        'Mantenimiento',
+        'Otros',
+      ];
+    }
+
+    return configuradas;
   }
 
   // ==========================================================
@@ -7420,6 +7553,12 @@ class _NuevoMovimientoState
       'plantillaNota': recurrente ? notaController.text.trim() : null,
       'plantillaFotoPath': recurrente ? fotoPath : null,
       'plantillaIntervaloMeses': recurrente ? ((int.tryParse(intervaloController.text.trim()) ?? intervaloMeses).clamp(1, 120)) : null,
+      'fechaFinRecurrencia': recurrente && fechaFinRecurrencia != null
+          ? fechaTexto(fechaFinRecurrencia!)
+          : null,
+      'plantillaFechaFinRecurrencia': recurrente && fechaFinRecurrencia != null
+          ? fechaTexto(fechaFinRecurrencia!)
+          : null,
 
       'nota': notaController.text.trim(),
       'fotoPath': fotoPath,
@@ -7762,7 +7901,7 @@ class _NuevoMovimientoState
                     ),
                     if (recurrente)
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                         child: TextField(
                           controller: intervaloController,
                           keyboardType: TextInputType.number,
@@ -7781,6 +7920,40 @@ class _NuevoMovimientoState
                             }
                           },
                         ),
+                      ),
+                    if (recurrente)
+                      ListTile(
+                        contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        leading: const Icon(Icons.event_outlined),
+                        title: const Text('Finalizar recurrencia'),
+                        subtitle: Text(
+                          fechaFinRecurrencia == null
+                              ? 'Sin fecha de finalización'
+                              : fechaTexto(fechaFinRecurrencia!),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (fechaFinRecurrencia != null)
+                              IconButton(
+                                tooltip: 'Quitar fecha de finalización',
+                                onPressed: () => setState(() => fechaFinRecurrencia = null),
+                                icon: const Icon(Icons.clear),
+                              ),
+                            const Icon(Icons.chevron_right),
+                          ],
+                        ),
+                        onTap: () async {
+                          final inicial = fechaFinRecurrencia ??
+                              DateTime(fecha.year + 1, fecha.month, fecha.day);
+                          final d = await showDatePicker(
+                            context: context,
+                            initialDate: inicial.isBefore(fecha) ? fecha : inicial,
+                            firstDate: fecha,
+                            lastDate: DateTime(2100),
+                          );
+                          if (d != null) setState(() => fechaFinRecurrencia = d);
+                        },
                       ),
                   ],
                 ),
@@ -12491,6 +12664,723 @@ class _SelectorMesState extends State<SelectorMes> {
           child: const Text('Cancelar'),
         ),
       ],
+    );
+  }
+}
+
+
+// ============================================================
+// SEGUIMIENTO DE INMUEBLES
+// ============================================================
+
+class SeguimientoInmueblesPage extends StatefulWidget {
+  final List<Map<String, dynamic>> inmuebles;
+  final List<Map<String, dynamic>> movimientos;
+  final Future<void> Function(List<Map<String, dynamic>>) onChanged;
+  final Future<void> Function() onMovimientosChanged;
+
+  const SeguimientoInmueblesPage({
+    super.key,
+    required this.inmuebles,
+    required this.movimientos,
+    required this.onChanged,
+    required this.onMovimientosChanged,
+  });
+
+  @override
+  State<SeguimientoInmueblesPage> createState() => _SeguimientoInmueblesPageState();
+}
+
+class _SeguimientoInmueblesPageState extends State<SeguimientoInmueblesPage> {
+  late List<Map<String, dynamic>> datos;
+  DateTime mes = DateTime(DateTime.now().year, DateTime.now().month, 1);
+
+  static const propiedades = ['Bordador', 'Afán', 'Fco Carrera', 'Otros'];
+
+  @override
+  void initState() {
+    super.initState();
+    datos = widget.inmuebles.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  String _mesKey(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}';
+
+  String _euros(double v) => '${v.toStringAsFixed(2).replaceAll('.', ',')} €';
+
+  Future<void> _guardar() async {
+    await widget.onChanged(
+      datos.map((e) => Map<String, dynamic>.from(e)).toList(),
+    );
+    if (mounted) setState(() {});
+  }
+
+  List<Map<String, dynamic>> _cobros(Map<String, dynamic> inquilino) {
+    final raw = inquilino['cobros'];
+    if (raw is! List) return [];
+    return raw.whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Map<String, dynamic> _cobroDelMes(Map<String, dynamic> inquilino) {
+    final lista = _cobros(inquilino);
+    final key = _mesKey(mes);
+    for (final c in lista) {
+      if (c['mes']?.toString() == key) return c;
+    }
+    return {
+      'id': 'cobro_${inquilino['id']}_$key',
+      'mes': key,
+      'recibido': false,
+      'fechaRecibido': null,
+      'movimientoId': null,
+      'alquiler': ((inquilino['alquiler'] as num?) ?? 0).toDouble(),
+      'gastos': ((inquilino['gastos'] as num?) ?? 0).toDouble(),
+    };
+  }
+
+  Future<void> _anadirInquilino() async {
+    String inmueble = propiedades.first;
+    final nombre = TextEditingController();
+    final alquiler = TextEditingController();
+    final gastos = TextEditingController();
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, setDialogState) => AlertDialog(
+          title: const Text('Nuevo inquilino'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: inmueble,
+                  decoration: const InputDecoration(labelText: 'Inmueble'),
+                  items: propiedades.map((p) =>
+                      DropdownMenuItem(value: p, child: Text(p))).toList(),
+                  onChanged: (v) {
+                    if (v != null) setDialogState(() => inmueble = v);
+                  },
+                ),
+                TextField(
+                  controller: nombre,
+                  decoration: const InputDecoration(labelText: 'Inquilino'),
+                ),
+                TextField(
+                  controller: alquiler,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Alquiler mensual (€)'),
+                ),
+                TextField(
+                  controller: gastos,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Gastos mensuales (€)'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final a = double.tryParse(alquiler.text.trim().replaceAll(',', '.')) ?? -1;
+                final g = double.tryParse(gastos.text.trim().replaceAll(',', '.')) ?? -1;
+                if (nombre.text.trim().isEmpty || a < 0 || g < 0) return;
+                datos.add({
+                  'id': 'inquilino_${DateTime.now().microsecondsSinceEpoch}',
+                  'inmueble': inmueble,
+                  'inquilino': nombre.text.trim(),
+                  'alquiler': a,
+                  'gastos': g,
+                  'cobros': <Map<String, dynamic>>[],
+                });
+                Navigator.pop(c, true);
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok == true) await _guardar();
+  }
+
+  Future<void> _marcarRecibido(Map<String, dynamic> inquilino) async {
+    final key = _mesKey(mes);
+    final alquiler = ((inquilino['alquiler'] as num?) ?? 0).toDouble();
+    final gastos = ((inquilino['gastos'] as num?) ?? 0).toDouble();
+    final total = alquiler + gastos;
+    if (total <= 0) return;
+
+    final cobros = _cobros(inquilino);
+    Map<String, dynamic>? cobro;
+    for (final c in cobros) {
+      if (c['mes']?.toString() == key) {
+        cobro = c;
+        break;
+      }
+    }
+    cobro ??= {
+      'id': 'cobro_${inquilino['id']}_$key',
+      'mes': key,
+      'recibido': false,
+      'fechaRecibido': null,
+      'movimientoId': null,
+      'alquiler': alquiler,
+      'gastos': gastos,
+    };
+
+    if (cobro['recibido'] == true) return;
+
+    final ahora = DateTime.now();
+    final movimientoId = 'alquiler_${inquilino['id']}_$key';
+
+    // Al marcar recibido se crea un ingreso real con la fecha y hora del cobro.
+    // Esto permite que el seguimiento represente "previsto" y Movimientos
+    // represente "realmente cobrado".
+    if (!widget.movimientos.any((m) => m['id']?.toString() == movimientoId)) {
+      widget.movimientos.add({
+        'id': movimientoId,
+        'cantidad': total,
+        'cantidadOriginal': total,
+        'moneda': 'EUR',
+        'tipoCambio': 1,
+        'tipoCambioPendiente': false,
+        'tipo': 'Ingreso',
+        'categoria': 'Alquileres',
+        'subcategoria': inquilino['inmueble']?.toString(),
+        'subsubcategoria': null,
+        'emoji': '🏘️',
+        'fecha': fechaTexto(ahora),
+        'fechaCreacion': fechaTexto(ahora),
+        'hora': '${ahora.hour.toString().padLeft(2, '0')}:${ahora.minute.toString().padLeft(2, '0')}',
+        'nota': 'Alquiler $key · ${inquilino['inmueble']} · ${inquilino['inquilino']}',
+        'fotoPath': null,
+        'recurrente': false,
+        'intervaloMeses': 1,
+        'recurrenceId': null,
+      });
+    }
+
+    cobro['recibido'] = true;
+    cobro['fechaRecibido'] = ahora.toUtc().toIso8601String();
+    cobro['movimientoId'] = movimientoId;
+    cobro['alquiler'] = alquiler;
+    cobro['gastos'] = gastos;
+
+    if (!cobros.any((c) => c['id']?.toString() == cobro!['id']?.toString())) {
+      cobros.add(cobro);
+    }
+    inquilino['cobros'] = cobros;
+
+    await _guardar();
+    await widget.onMovimientosChanged();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ingreso de ${_euros(total)} registrado.')),
+      );
+    }
+  }
+
+  Future<void> _editarInquilino(Map<String, dynamic> item) async {
+    String inmueble = item['inmueble']?.toString() ?? propiedades.first;
+    final nombre = TextEditingController(text: item['inquilino']?.toString() ?? '');
+    final alquiler = TextEditingController(
+      text: ((item['alquiler'] as num?) ?? 0).toString(),
+    );
+    final gastos = TextEditingController(
+      text: ((item['gastos'] as num?) ?? 0).toString(),
+    );
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, setDialogState) => AlertDialog(
+          title: const Text('Editar inquilino'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: propiedades.contains(inmueble) ? inmueble : propiedades.first,
+                  decoration: const InputDecoration(labelText: 'Inmueble'),
+                  items: propiedades.map((p) =>
+                      DropdownMenuItem(value: p, child: Text(p))).toList(),
+                  onChanged: (v) {
+                    if (v != null) setDialogState(() => inmueble = v);
+                  },
+                ),
+                TextField(controller: nombre, decoration: const InputDecoration(labelText: 'Inquilino')),
+                TextField(controller: alquiler, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Alquiler mensual (€)')),
+                TextField(controller: gastos, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Gastos mensuales (€)')),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
+            FilledButton(
+              onPressed: () {
+                final a = double.tryParse(alquiler.text.replaceAll(',', '.')) ?? -1;
+                final g = double.tryParse(gastos.text.replaceAll(',', '.')) ?? -1;
+                if (nombre.text.trim().isEmpty || a < 0 || g < 0) return;
+                item['inmueble'] = inmueble;
+                item['inquilino'] = nombre.text.trim();
+                item['alquiler'] = a;
+                item['gastos'] = g;
+                Navigator.pop(c, true);
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok == true) await _guardar();
+  }
+
+  Future<void> _borrarInquilino(Map<String, dynamic> item) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Eliminar seguimiento'),
+        content: Text('¿Eliminar el seguimiento de ${item['inquilino'] ?? ''}? Los ingresos ya registrados no se borrarán.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Eliminar')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      datos.removeWhere((e) => e['id']?.toString() == item['id']?.toString());
+      await _guardar();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final key = _mesKey(mes);
+    final activos = datos;
+    double pendiente = 0;
+    for (final i in activos) {
+      final c = _cobroDelMes(i);
+      if (c['recibido'] != true) {
+        pendiente += ((i['alquiler'] as num?) ?? 0).toDouble();
+        pendiente += ((i['gastos'] as num?) ?? 0).toDouble();
+      }
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Inmuebles'),
+        actions: [
+          IconButton(
+            onPressed: _anadirInquilino,
+            icon: const Icon(Icons.add_home_work_outlined),
+            tooltip: 'Añadir inquilino',
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            children: [
+              IconButton(
+                onPressed: () => setState(() => mes = DateTime(mes.year, mes.month - 1, 1)),
+                icon: const Icon(Icons.chevron_left),
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    '${mes.month.toString().padLeft(2, '0')}/${mes.year}',
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () => setState(() => mes = DateTime(mes.year, mes.month + 1, 1)),
+                icon: const Icon(Icons.chevron_right),
+              ),
+            ],
+          ),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.pending_actions_outlined),
+              title: const Text('Pendiente de recibir'),
+              trailing: Text(_euros(pendiente), style: const TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (activos.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Text('No hay inquilinos configurados. Pulsa + para añadir uno.'),
+              ),
+            ),
+          ...activos.map((i) {
+            final c = _cobroDelMes(i);
+            final a = ((i['alquiler'] as num?) ?? 0).toDouble();
+            final g = ((i['gastos'] as num?) ?? 0).toDouble();
+            final recibido = c['recibido'] == true;
+            return Card(
+              child: ListTile(
+                leading: CircleAvatar(
+                  child: Icon(recibido ? Icons.check : Icons.home_work_outlined),
+                ),
+                title: Text('${i['inquilino']} · ${i['inmueble']}'),
+                subtitle: Text(
+                  'Alquiler ${_euros(a)} + gastos ${_euros(g)} = ${_euros(a + g)}\n'
+                      '${recibido ? 'Recibido $key' : 'Pendiente $key'}',
+                ),
+                isThreeLine: true,
+                trailing: Wrap(
+                  children: [
+                    IconButton(
+                      tooltip: recibido ? 'Ya recibido' : 'Marcar recibido',
+                      onPressed: recibido ? null : () => _marcarRecibido(i),
+                      icon: Icon(recibido ? Icons.check_circle : Icons.payments_outlined),
+                    ),
+                    PopupMenuButton<String>(
+                      onSelected: (v) {
+                        if (v == 'editar') _editarInquilino(i);
+                        if (v == 'borrar') _borrarInquilino(i);
+                      },
+                      itemBuilder: (c) => const [
+                        PopupMenuItem(value: 'editar', child: Text('Editar')),
+                        PopupMenuItem(value: 'borrar', child: Text('Eliminar')),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// MÓDULO: DEUDAS
+// ============================================================
+
+class DeudasPage extends StatefulWidget {
+  final List<Map<String, dynamic>> deudas;
+  final Future<void> Function(List<Map<String, dynamic>>) onChanged;
+
+  const DeudasPage({super.key, required this.deudas, required this.onChanged});
+
+  @override
+  State<DeudasPage> createState() => _DeudasPageState();
+}
+
+class _DeudasPageState extends State<DeudasPage> {
+  late List<Map<String, dynamic>> datos;
+
+  @override
+  void initState() {
+    super.initState();
+    datos = widget.deudas.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<void> _guardar() => widget.onChanged(datos);
+
+  Future<void> _anadir() async {
+    String tipo = 'Me deben';
+    final persona = TextEditingController();
+    final concepto = TextEditingController();
+    final importe = TextEditingController();
+    final fecha = TextEditingController(text: fechaTexto(DateTime.now()));
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, setDialogState) => AlertDialog(
+          title: const Text('Nueva deuda'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: tipo,
+                  decoration: const InputDecoration(labelText: 'Tipo'),
+                  items: const [
+                    DropdownMenuItem(value: 'Me deben', child: Text('Me deben')),
+                    DropdownMenuItem(value: 'Debo', child: Text('Debo')),
+                  ],
+                  onChanged: (v) { if (v != null) setDialogState(() => tipo = v); },
+                ),
+                TextField(controller: persona, decoration: const InputDecoration(labelText: 'Persona / entidad')),
+                TextField(controller: concepto, decoration: const InputDecoration(labelText: 'Concepto')),
+                TextField(controller: importe, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Importe (€)')),
+                TextField(controller: fecha, decoration: const InputDecoration(labelText: 'Fecha')),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
+            FilledButton(
+              onPressed: () {
+                final n = double.tryParse(importe.text.replaceAll(',', '.')) ?? -1;
+                if (persona.text.trim().isEmpty || concepto.text.trim().isEmpty || n < 0) return;
+                datos.add({
+                  'id': 'deuda_${DateTime.now().microsecondsSinceEpoch}',
+                  'tipo': tipo,
+                  'persona': persona.text.trim(),
+                  'concepto': concepto.text.trim(),
+                  'importe': n,
+                  'pagado': 0.0,
+                  'fecha': fecha.text.trim(),
+                });
+                Navigator.pop(c, true);
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok == true) await _guardar();
+  }
+
+  Future<void> _pagoParcial(Map<String, dynamic> d) async {
+    final restante = (((d['importe'] as num?) ?? 0).toDouble() -
+        ((d['pagado'] as num?) ?? 0).toDouble()).clamp(0, double.infinity).toDouble();
+    final controller = TextEditingController(text: restante.toStringAsFixed(2));
+    final n = await showDialog<double>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Registrar pago'),
+        content: TextField(
+          controller: controller,
+          autofocus: false,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(labelText: 'Importe del pago (€)'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, double.tryParse(controller.text.replaceAll(',', '.'))),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    if (n == null || n <= 0) return;
+    final importe = ((d['importe'] as num?) ?? 0).toDouble();
+    final pagado = ((d['pagado'] as num?) ?? 0).toDouble();
+    d['pagado'] = (pagado + n).clamp(0, importe).toDouble();
+    d['fechaUltimoPago'] = DateTime.now().toUtc().toIso8601String();
+    await _guardar();
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final meDeben = datos.where((d) => d['tipo'] == 'Me deben').toList();
+    final debo = datos.where((d) => d['tipo'] == 'Debo').toList();
+
+    double pendiente(List<Map<String, dynamic>> lista) =>
+        lista.fold(0, (sum, d) => sum + (((d['importe'] as num?) ?? 0).toDouble() -
+            ((d['pagado'] as num?) ?? 0).toDouble()).clamp(0, double.infinity).toDouble());
+
+    Widget grupo(String titulo, List<Map<String, dynamic>> lista) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$titulo · ${_formatEuroDeudas(pendiente(lista))}',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const Divider(),
+              if (lista.isEmpty) const Text('Sin deudas.'),
+              ...lista.map((d) {
+                final total = ((d['importe'] as num?) ?? 0).toDouble();
+                final pagado = ((d['pagado'] as num?) ?? 0).toDouble();
+                final restante = (total - pagado).clamp(0, double.infinity).toDouble();
+                return ListTile(
+                  title: Text('${d['persona']} · ${d['concepto']}'),
+                  subtitle: Text(
+                    'Total ${_formatEuroDeudas(total)} · Pagado ${_formatEuroDeudas(pagado)} · Pendiente ${_formatEuroDeudas(restante)}',
+                  ),
+                  trailing: restante > 0
+                      ? IconButton(
+                    tooltip: 'Registrar pago',
+                    icon: const Icon(Icons.payments_outlined),
+                    onPressed: () => _pagoParcial(d),
+                  )
+                      : const Icon(Icons.check_circle),
+                );
+              }),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Deudas'),
+        actions: [IconButton(onPressed: _anadir, icon: const Icon(Icons.add))],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          grupo('Me deben', meDeben),
+          grupo('Debo', debo),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatEuroDeudas(double v) =>
+    '${v.toStringAsFixed(2).replaceAll('.', ',')} €';
+
+// ============================================================
+// MÓDULO: INVERSIONES
+// ============================================================
+
+class InversionesPage extends StatefulWidget {
+  final List<Map<String, dynamic>> inversiones;
+  final Future<void> Function(List<Map<String, dynamic>>) onChanged;
+
+  const InversionesPage({super.key, required this.inversiones, required this.onChanged});
+
+  @override
+  State<InversionesPage> createState() => _InversionesPageState();
+}
+
+class _InversionesPageState extends State<InversionesPage> {
+  late List<Map<String, dynamic>> datos;
+
+  @override
+  void initState() {
+    super.initState();
+    datos = widget.inversiones.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<void> _guardar() => widget.onChanged(datos);
+
+  Future<void> _anadir() async {
+    String tipo = 'ETF';
+    final activo = TextEditingController();
+    final plataforma = TextEditingController();
+    final importe = TextEditingController();
+    final fecha = TextEditingController(text: fechaTexto(DateTime.now()));
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, setDialogState) => AlertDialog(
+          title: const Text('Nueva inversión'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: tipo,
+                  decoration: const InputDecoration(labelText: 'Tipo'),
+                  items: const [
+                    DropdownMenuItem(value: 'ETF', child: Text('ETF')),
+                    DropdownMenuItem(value: 'Acciones', child: Text('Acciones')),
+                    DropdownMenuItem(value: 'Bitcoin', child: Text('Bitcoin')),
+                    DropdownMenuItem(value: 'Oro', child: Text('Oro')),
+                    DropdownMenuItem(value: 'Fondos', child: Text('Fondos')),
+                    DropdownMenuItem(value: 'Otros', child: Text('Otros')),
+                  ],
+                  onChanged: (v) { if (v != null) setDialogState(() => tipo = v); },
+                ),
+                TextField(controller: activo, decoration: const InputDecoration(labelText: 'Producto / activo')),
+                TextField(controller: plataforma, decoration: const InputDecoration(labelText: 'Dónde / broker')),
+                TextField(controller: importe, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Importe invertido (€)')),
+                TextField(controller: fecha, decoration: const InputDecoration(labelText: 'Fecha')),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
+            FilledButton(
+              onPressed: () {
+                final n = double.tryParse(importe.text.replaceAll(',', '.')) ?? -1;
+                if (activo.text.trim().isEmpty || n < 0) return;
+                datos.add({
+                  'id': 'inversion_${DateTime.now().microsecondsSinceEpoch}',
+                  'tipo': tipo,
+                  'activo': activo.text.trim(),
+                  'plataforma': plataforma.text.trim(),
+                  'importe': n,
+                  'fecha': fecha.text.trim(),
+                });
+                Navigator.pop(c, true);
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok == true) await _guardar();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = datos.fold<double>(
+      0,
+          (sum, d) => sum + (((d['importe'] as num?) ?? 0).toDouble()),
+    );
+    final porActivo = <String, double>{};
+    for (final d in datos) {
+      final activo = d['activo']?.toString() ?? 'Otros';
+      porActivo[activo] = (porActivo[activo] ?? 0) +
+          (((d['importe'] as num?) ?? 0).toDouble());
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Inversiones'),
+        actions: [IconButton(onPressed: _anadir, icon: const Icon(Icons.add))],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.trending_up),
+              title: const Text('Total invertido'),
+              trailing: Text(
+                '${total.toStringAsFixed(2).replaceAll('.', ',')} €',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text('Por activo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ...porActivo.entries.map((e) => ListTile(
+            title: Text(e.key),
+            trailing: Text('${e.value.toStringAsFixed(2).replaceAll('.', ',')} €'),
+          )),
+          const Divider(),
+          const Text('Operaciones', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ...datos.map((d) => Card(
+            child: ListTile(
+              title: Text('${d['activo']} · ${d['tipo']}'),
+              subtitle: Text('${d['fecha']} · ${d['plataforma'] ?? ''}'),
+              trailing: Text('${(((d['importe'] as num?) ?? 0).toDouble()).toStringAsFixed(2).replaceAll('.', ',')} €'),
+            ),
+          )),
+        ],
+      ),
     );
   }
 }
