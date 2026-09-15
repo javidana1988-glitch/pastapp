@@ -2317,28 +2317,48 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     _cambiosLocalesPendientesDeSubir =
         prefs.getBool('cambios_locales_pendientes_subir') ?? false;
 
-    final movimientosGuardados =
-    prefs.getString('movimientos');
-
-    final gastosGuardados =
-    prefs.getString('categorias_gastos');
-
-    final ingresosGuardados =
-    prefs.getString('categorias_ingresos');
-
-    final correccionesGuardadas =
-    prefs.getString('correcciones');
-
-    final balanceGuardado =
-    prefs.getDouble('balance_inicial');
-
-    final historicosGuardados = prefs.getString('historicos');
-    final patrimoniosGuardados = prefs.getString('patrimonios');
+    // En Web no usamos localStorage para los datos grandes de PastApp.
+    // La versión anterior intentaba guardar miles de movimientos, históricos
+    // y demás listas en SharedPreferences, cuyo backend web usa localStorage.
+    // Eso provoca QuotaExceededError al superar la cuota del navegador.
+    // En Web Firebase es la fuente de verdad y estos datos se descargan allí.
+    // En Android mantenemos la copia local como hasta ahora.
+    final movimientosGuardados = kIsWeb ? null : prefs.getString('movimientos');
+    final gastosGuardados = kIsWeb ? null : prefs.getString('categorias_gastos');
+    final ingresosGuardados = kIsWeb ? null : prefs.getString('categorias_ingresos');
+    final correccionesGuardadas = kIsWeb ? null : prefs.getString('correcciones');
+    final balanceGuardado = kIsWeb ? null : prefs.getDouble('balance_inicial');
+    final historicosGuardados = kIsWeb ? null : prefs.getString('historicos');
+    final patrimoniosGuardados = kIsWeb ? null : prefs.getString('patrimonios');
     final categoriasPatrimonioGuardadas =
-    prefs.getString('categorias_patrimonio');
-    final seguimientoInmueblesGuardado = prefs.getString('seguimiento_inmuebles');
-    final deudasGuardadas = prefs.getString('deudas');
-    final inversionesGuardadas = prefs.getString('inversiones');
+    kIsWeb ? null : prefs.getString('categorias_patrimonio');
+    final seguimientoInmueblesGuardado =
+    kIsWeb ? null : prefs.getString('seguimiento_inmuebles');
+    final deudasGuardadas = kIsWeb ? null : prefs.getString('deudas');
+    final inversionesGuardadas = kIsWeb ? null : prefs.getString('inversiones');
+
+    // Limpieza única de las claves grandes de la versión antigua en Web.
+    // No toca Firebase ni los datos sincronizados; solo elimina la caché local
+    // del navegador que puede haber quedado ocupando la cuota.
+    if (kIsWeb) {
+      for (final clave in const [
+        'movimientos',
+        'categorias_gastos',
+        'categorias_ingresos',
+        'correcciones',
+        'balance_inicial',
+        'historicos',
+        'patrimonios',
+        'categorias_patrimonio',
+        'seguimiento_inmuebles',
+        'deudas',
+        'inversiones',
+      ]) {
+        try {
+          await prefs.remove(clave);
+        } catch (_) {}
+      }
+    }
 
     setState(() {
       if (movimientosGuardados != null) {
@@ -3054,40 +3074,22 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       );
     }
 
-    await prefs.setString(
-      'movimientos',
-      jsonEncode(movimientos),
-    );
-
-    await prefs.setString(
-      'categorias_gastos',
-      jsonEncode(categoriasGastos),
-    );
-
-    await prefs.setString(
-      'categorias_ingresos',
-      jsonEncode(categoriasIngresos),
-    );
-
-    await prefs.setString(
-      'correcciones',
-      jsonEncode(correcciones),
-    );
-
-    await prefs.setDouble(
-      'balance_inicial',
-      balanceInicial,
-    );
-
-    await prefs.setString('historicos', jsonEncode(historicos));
-    await prefs.setString('patrimonios', jsonEncode(patrimonios));
-    await prefs.setString(
-      'categorias_patrimonio',
-      jsonEncode(categoriasPatrimonio),
-    );
-    await prefs.setString('seguimiento_inmuebles', jsonEncode(seguimientoInmuebles));
-    await prefs.setString('deudas', jsonEncode(deudas));
-    await prefs.setString('inversiones', jsonEncode(inversiones));
+    if (!kIsWeb) {
+      // Android mantiene una copia local completa. En Web NO guardamos estas
+      // listas en SharedPreferences porque el backend web usa localStorage y
+      // tiene una cuota demasiado pequeña para los datos actuales de PastApp.
+      await prefs.setString('movimientos', jsonEncode(movimientos));
+      await prefs.setString('categorias_gastos', jsonEncode(categoriasGastos));
+      await prefs.setString('categorias_ingresos', jsonEncode(categoriasIngresos));
+      await prefs.setString('correcciones', jsonEncode(correcciones));
+      await prefs.setDouble('balance_inicial', balanceInicial);
+      await prefs.setString('historicos', jsonEncode(historicos));
+      await prefs.setString('patrimonios', jsonEncode(patrimonios));
+      await prefs.setString('categorias_patrimonio', jsonEncode(categoriasPatrimonio));
+      await prefs.setString('seguimiento_inmuebles', jsonEncode(seguimientoInmuebles));
+      await prefs.setString('deudas', jsonEncode(deudas));
+      await prefs.setString('inversiones', jsonEncode(inversiones));
+    }
 
     if (marcarComoCambioLocal &&
         _datosInicialesCargados &&
