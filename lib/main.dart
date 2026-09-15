@@ -18,6 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
 
 class _CancelRecurrenceAction implements Exception {}
 
@@ -1667,52 +1668,51 @@ String nombreMoneda(String codigo) {
 }
 
 class ServicioDivisas {
+  // Devuelve cuántas unidades de la moneda extranjera equivalen a 1 EUR.
+  // Así el resto de la app puede mantener: euros = cantidad / tipoCambio.
   static Future<double> obtenerCambioAEuro(String moneda, DateTime fecha) async {
-    if (moneda == 'EUR') return 1.0;
-
-    final fechaInicio = fecha.subtract(const Duration(days: 30));
-    final inicio = '${fechaInicio.year.toString().padLeft(4, '0')}-${fechaInicio.month.toString().padLeft(2, '0')}-${fechaInicio.day.toString().padLeft(2, '0')}';
-    final fin = '${fecha.year.toString().padLeft(4, '0')}-${fecha.month.toString().padLeft(2, '0')}-${fecha.day.toString().padLeft(2, '0')}';
-    final uri = Uri.parse(
-      'https://data-api.ecb.europa.eu/service/data/EXR/D.$moneda.EUR.SP00.A?startPeriod=$inicio&endPeriod=$fin&format=csvdata',
-    );
-
-    try {
-      final client = HttpClient()..connectionTimeout = const Duration(seconds: 8);
-      final request = await client.getUrl(uri);
-      request.headers.set(HttpHeaders.acceptHeader, 'text/csv');
-      final response = await request.close();
-      final body = await response.transform(const SystemEncoding().decoder).join();
-      client.close();
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        final lineas = body.split(RegExp(r'\r?\n')).where((l) => l.trim().isNotEmpty).toList();
-        if (lineas.length >= 2) {
-          final separador = lineas.first.contains(';') ? ';' : ',';
-          final cabecera = lineas.first.split(separador).map((x) => x.trim().replaceAll('"', '')).toList();
-          final indiceValor = cabecera.indexOf('OBS_VALUE');
-          for (int i = lineas.length - 1; i >= 1; i--) {
-            final campos = lineas[i].split(separador).map((x) => x.trim().replaceAll('"', '')).toList();
-            final candidatos = <String>[];
-            if (indiceValor >= 0 && indiceValor < campos.length) candidatos.add(campos[indiceValor]);
-            candidatos.addAll(campos.reversed);
-            for (final texto in candidatos) {
-              final valor = double.tryParse(texto.replaceAll(',', '.'));
-              if (valor != null && valor > 0) {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setDouble('fx_$moneda', valor);
-                return valor;
-              }
-            }
-          }
-        }
-      }
-    } catch (_) {}
+    final codigo = moneda.trim().toUpperCase();
+    if (codigo == 'EUR') return 1.0;
 
     final prefs = await SharedPreferences.getInstance();
-    final cache = prefs.getDouble('fx_$moneda');
-    if (cache != null && cache > 0) return cache;
-    return 0.0;
+
+    Future<double> consultar({String? fechaTexto}) async {
+      try {
+        final uri = Uri.parse(
+          'https://api.frankfurter.dev/v2/rate/eur/${codigo.toLowerCase()}'
+              '${fechaTexto == null ? '' : '?date=$fechaTexto'}',
+        );
+        final response = await http
+            .get(uri, headers: {'Accept': 'application/json'})
+            .timeout(const Duration(seconds: 8));
+
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          final datos = jsonDecode(response.body);
+          final valor = (datos['rate'] as num?)?.toDouble();
+          if (valor != null && valor > 0) {
+            await prefs.setDouble('fx_$codigo', valor);
+            return valor;
+          }
+        }
+      } catch (_) {}
+      return 0.0;
+    }
+
+    final fechaTexto = '${fecha.year.toString().padLeft(4, '0')}-'
+        '${fecha.month.toString().padLeft(2, '0')}-'
+        '${fecha.day.toString().padLeft(2, '0')}';
+
+    // Primero la fecha del movimiento. Si todavía no hay cotización,
+    // usamos la última disponible.
+    var cambio = await consultar(fechaTexto: fechaTexto);
+    if (cambio <= 0) cambio = await consultar();
+
+    if (cambio <= 0) {
+      final cache = prefs.getDouble('fx_$codigo');
+      if (cache != null && cache > 0) return cache;
+    }
+
+    return cambio;
   }
 }
 
@@ -1828,6 +1828,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   bool _mostrarOpcionesFab = false;
   String? _filtroMovimientosInicio;
   bool _mostrarProximosMovimientos = false;
+  int _limiteMovimientosInicio = 12;
   Timer? _timerCambiosPendientes;
   Timer? _timerComprobacionSincronizacion;
   Timer? _timerSubidaAutomatica;
@@ -3027,18 +3028,28 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     if (pendientes.isEmpty) return;
 
     bool cambios = false;
-    for (final movimiento in pendientes) {
-      final moneda = movimiento['moneda']?.toString() ?? 'EUR';
-      final fecha = convertirFecha(movimiento['fecha']?.toString() ?? '');
-      if (fecha.year == 1900) continue;
 
-      final cambio = await ServicioDivisas.obtenerCambioAEuro(moneda, fecha);
-      if (cambio > 0) {
-        final original = ((movimiento['cantidadOriginal'] as num?) ?? 0).toDouble();
-        movimiento['tipoCambio'] = cambio;
-        movimiento['cantidad'] = original / cambio;
-        movimiento['tipoCambioPendiente'] = false;
-        cambios = true;
+    // Se procesa cada movimiento independientemente.
+    // Un HUF que falle no bloquea BRL, USD, etc.
+    for (final movimiento in pendientes) {
+      try {
+        final moneda = movimiento['moneda']?.toString() ?? 'EUR';
+        final fecha = convertirFecha(movimiento['fecha']?.toString() ?? '');
+        if (fecha.year == 1900) continue;
+
+        final cambio = await ServicioDivisas.obtenerCambioAEuro(moneda, fecha);
+
+        if (cambio > 0) {
+          final original =
+          ((movimiento['cantidadOriginal'] as num?) ?? 0).toDouble();
+
+          movimiento['tipoCambio'] = cambio;
+          movimiento['cantidad'] = original / cambio;
+          movimiento['tipoCambioPendiente'] = false;
+          cambios = true;
+        }
+      } catch (_) {
+        // Este movimiento queda pendiente y se intentará de nuevo después.
       }
     }
 
@@ -3079,12 +3090,19 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       (((recurrente['plantillaIntervaloMeses'] as num?)?.toInt() ?? (recurrente['intervaloMeses'] as num?)?.toInt() ?? 1).clamp(1, 120)).toInt();
       recurrente['intervaloMeses'] = intervalo;
 
+      final fechaFinTexto =
+          recurrente['plantillaFechaFinRecurrencia']?.toString() ??
+              recurrente['fechaFinRecurrencia']?.toString() ??
+              '';
+      final fechaFin = convertirFecha(fechaFinTexto);
+      final tieneFechaFin = fechaFin.year != 1900;
+
       final inicioProgramacion = convertirFecha(recurrente['recurrenceStartDate']?.toString() ?? '');
       DateTime fecha = inicioProgramacion.year != 1900
           ? inicioProgramacion
           : sumarMeses(fechaOriginal, intervalo);
 
-      while (!fecha.isAfter(limite)) {
+      while (!fecha.isAfter(limite) && (!tieneFechaFin || !fecha.isAfter(fechaFin))) {
         final omitidas = List<String>.from(
           recurrente['recurrenciasOmitidas'] ?? const [],
         );
@@ -3538,12 +3556,37 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     if (fecha.year == 1900) fecha = DateTime.now();
 
     String moneda = original['moneda']?.toString() ?? 'EUR';
+    String? categoriaEditada = original['categoria']?.toString();
+    String? subcategoriaEditada = original['subcategoria']?.toString();
+    String? subsubcategoriaEditada = original['subsubcategoria']?.toString();
+    final notaEditController = TextEditingController(text: original['nota']?.toString() ?? '');
     bool recurrenteEditado = original['recurrente'] == true;
     int intervaloEditado =
     ((original['intervaloMeses'] as num?)?.toInt() ?? 1).clamp(1, 120);
     final intervaloEditController = TextEditingController(
       text: intervaloEditado.toString(),
     );
+    DateTime? fechaFinRecurrencia = (() {
+      final f = convertirFecha(original['fechaFinRecurrencia']?.toString() ?? original['plantillaFechaFinRecurrencia']?.toString() ?? '');
+      return f.year == 1900 ? null : f;
+    })();
+
+    List<Map<String, dynamic>> categoriasEdit = List<Map<String, dynamic>>.from(
+      esGasto ? categoriasGastos : categoriasIngresos,
+    )..sort((a, b) => (a['nombre']?.toString() ?? '').toLowerCase().compareTo((b['nombre']?.toString() ?? '').toLowerCase()));
+
+    List<String> subsEdit(String? cat) {
+      final candidatos = categoriasEdit.where((x) => x['nombre']?.toString() == cat).toList();
+      final c = candidatos.isEmpty ? null : candidatos.first;
+      return List<String>.from(c?['subcategorias'] ?? const []);
+    }
+
+    List<String> ssEdit(String? cat, String? sub) {
+      final candidatos = categoriasEdit.where((x) => x['nombre']?.toString() == cat).toList();
+      final c = candidatos.isEmpty ? null : candidatos.first;
+      final mapa = Map<String, dynamic>.from(c?['subsubcategorias'] ?? {});
+      return List<String>.from(mapa[sub] ?? const []);
+    }
 
     final resultado = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
@@ -3604,6 +3647,63 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                       ),
                     ),
                     const SizedBox(height: 14),
+
+                    DropdownButtonFormField<String>(
+                      value: categoriasEdit.any((c) => c['nombre']?.toString() == categoriaEditada) ? categoriaEditada : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Categoría',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: categoriasEdit.map((c) => DropdownMenuItem<String>(
+                        value: c['nombre']?.toString(),
+                        child: Text(c['nombre']?.toString() ?? ''),
+                      )).toList(),
+                      onChanged: (v) => setSheetState(() {
+                        categoriaEditada = v;
+                        final subs = subsEdit(v);
+                        subcategoriaEditada = subs.contains(subcategoriaEditada) ? subcategoriaEditada : (subs.isNotEmpty ? subs.first : null);
+                        final ss = ssEdit(v, subcategoriaEditada);
+                        subsubcategoriaEditada = ss.contains(subsubcategoriaEditada) ? subsubcategoriaEditada : (ss.isNotEmpty ? ss.first : null);
+                      }),
+                    ),
+                    const SizedBox(height: 10),
+                    if (subsEdit(categoriaEditada).isNotEmpty)
+                      DropdownButtonFormField<String>(
+                        value: subsEdit(categoriaEditada).contains(subcategoriaEditada) ? subcategoriaEditada : null,
+                        decoration: InputDecoration(
+                          labelText: esGasto && categoriaEditada == 'Pisos' ? 'Inmueble' : 'Subcategoría',
+                          border: const OutlineInputBorder(),
+                        ),
+                        items: subsEdit(categoriaEditada).map((s) => DropdownMenuItem<String>(value: s, child: Text(s))).toList(),
+                        onChanged: (v) => setSheetState(() {
+                          subcategoriaEditada = v;
+                          final ss = ssEdit(categoriaEditada, v);
+                          subsubcategoriaEditada = ss.contains(subsubcategoriaEditada) ? subsubcategoriaEditada : (ss.isNotEmpty ? ss.first : null);
+                        }),
+                      ),
+                    if (ssEdit(categoriaEditada, subcategoriaEditada).isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        value: ssEdit(categoriaEditada, subcategoriaEditada).contains(subsubcategoriaEditada) ? subsubcategoriaEditada : null,
+                        decoration: InputDecoration(
+                          labelText: esGasto && categoriaEditada == 'Pisos' ? 'Tipo de gasto' : 'Detalle',
+                          border: const OutlineInputBorder(),
+                        ),
+                        items: ssEdit(categoriaEditada, subcategoriaEditada).map((s) => DropdownMenuItem<String>(value: s, child: Text(s))).toList(),
+                        onChanged: (v) => setSheetState(() => subsubcategoriaEditada = v),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: notaEditController,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Nota / comentario',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    // Importe y moneda se editan juntos.
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -3650,10 +3750,13 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                         ),
                       ],
                     ),
+
                     const SizedBox(height: 8),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.calendar_today_outlined),
+                      leading: const Icon(
+                        Icons.calendar_today_outlined,
+                      ),
                       title: const Text('Fecha'),
                       subtitle: Text(fechaTexto(fecha)),
                       trailing: const Icon(Icons.chevron_right),
@@ -3669,6 +3772,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                         }
                       },
                     ),
+
                     const SizedBox(height: 4),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -3717,6 +3821,40 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                           ],
                         ),
                       ),
+                    if (recurrenteEditado)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.event_outlined),
+                        title: const Text('Finalizar recurrencia'),
+                        subtitle: Text(
+                          fechaFinRecurrencia == null
+                              ? 'Sin fecha de finalización'
+                              : fechaTexto(fechaFinRecurrencia!),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (fechaFinRecurrencia != null)
+                              IconButton(
+                                tooltip: 'Quitar fecha de finalización',
+                                onPressed: () => setSheetState(() => fechaFinRecurrencia = null),
+                                icon: const Icon(Icons.clear),
+                              ),
+                            const Icon(Icons.chevron_right),
+                          ],
+                        ),
+                        onTap: () async {
+                          final inicial = fechaFinRecurrencia ??
+                              DateTime(fecha.year + 1, fecha.month, fecha.day);
+                          final d = await showDatePicker(
+                            context: context,
+                            initialDate: inicial.isBefore(fecha) ? fecha : inicial,
+                            firstDate: fecha,
+                            lastDate: DateTime(2100),
+                          );
+                          if (d != null) setSheetState(() => fechaFinRecurrencia = d);
+                        },
+                      ),
                     const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
@@ -3735,6 +3873,11 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                               'cantidad': valor,
                               'moneda': moneda,
                               'fecha': fecha,
+                              'categoria': categoriaEditada,
+                              'subcategoria': subcategoriaEditada,
+                              'subsubcategoria': subsubcategoriaEditada,
+                              'nota': notaEditController.text.trim(),
+                              'fechaFinRecurrencia': fechaFinRecurrencia == null ? null : fechaTexto(fechaFinRecurrencia!),
                               'recurrente': recurrenteEditado,
                               'intervaloMeses': intervaloEditado,
                             },
@@ -3746,7 +3889,8 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                     SizedBox(
                       width: double.infinity,
                       child: TextButton(
-                        onPressed: () => Navigator.pop(sheetContext),
+                        onPressed: () =>
+                            Navigator.pop(sheetContext),
                         child: const Text('Cancelar'),
                       ),
                     ),
@@ -3779,6 +3923,7 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     );
 
     intervaloEditController.dispose();
+    notaEditController.dispose();
 
     if (resultado == null || !mounted) return;
 
@@ -3787,162 +3932,65 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       return;
     }
 
+    int? alcance = 0;
     final nuevaRecurrente = resultado['recurrente'] == true;
-    final nuevoIntervalo = ((resultado['intervaloMeses'] as num?)?.toInt() ?? 1).clamp(1, 120).toInt();
-    final eraSerie = _esParteDeSerieRecurrente(original);
-    final alcance = eraSerie
-        ? await preguntarAlcanceEdicionRecurrente(original, alDesactivar: !nuevaRecurrente)
-        : 0;
-    if (alcance == null || !mounted) return;
+    final nuevoIntervalo = ((resultado['intervaloMeses'] as num?)?.toInt() ?? 1).clamp(1, 120);
+    if (original['recurrente'] == true && nuevaRecurrente) {
+      alcance = await preguntarAlcanceEdicionRecurrente(original, alDesactivar: !nuevaRecurrente);
+      if (alcance == null || !mounted) return;
+    }
 
     final valor = (resultado['cantidad'] as num).toDouble();
     final nuevaMoneda = resultado['moneda']?.toString() ?? 'EUR';
     final nuevaFecha = resultado['fecha'] as DateTime;
     final idOriginal = original['id']?.toString();
-    final indice = movimientos.indexWhere((m) => m['id']?.toString() == idOriginal);
+    final indice = movimientos.indexWhere(
+          (m) => m['id']?.toString() == idOriginal,
+    );
     if (indice == -1) return;
 
     double cambio = 1.0;
     bool pendiente = false;
+
     if (nuevaMoneda != 'EUR') {
-      cambio = await ServicioDivisas.obtenerCambioAEuro(nuevaMoneda, nuevaFecha);
+      cambio = await ServicioDivisas.obtenerCambioAEuro(
+        nuevaMoneda,
+        nuevaFecha,
+      );
       pendiente = cambio <= 0;
     }
 
-    final actualizado = Map<String, dynamic>.from(movimientos[indice]);
+    final actualizado = Map<String, dynamic>.from(
+      movimientos[indice],
+    );
+
     actualizado['cantidadOriginal'] = valor;
     actualizado['moneda'] = nuevaMoneda;
     actualizado['tipoCambio'] = cambio;
     actualizado['tipoCambioPendiente'] = pendiente;
-    actualizado['cantidad'] = pendiente ? 0.0 : (nuevaMoneda == 'EUR' ? valor : valor / cambio);
+    actualizado['cantidad'] = pendiente
+        ? 0.0
+        : (nuevaMoneda == 'EUR' ? valor : valor / cambio);
     actualizado['fecha'] = fechaTexto(nuevaFecha);
-
-    final datosNuevos = Map<String, dynamic>.from(actualizado);
-    final rootId = eraSerie ? _idRaizSerieRecurrente(original) : '';
-    final fechaOriginal = convertirFecha(original['fecha']?.toString() ?? '');
-
-    if (!eraSerie) {
-      actualizado['recurrente'] = nuevaRecurrente;
-      actualizado['intervaloMeses'] = nuevaRecurrente ? nuevoIntervalo : 1;
-      movimientos[indice] = actualizado;
-      if (nuevaRecurrente) {
-        _guardarPlantillaEnRaiz(actualizado, datosNuevos, nuevoIntervalo);
-      } else {
-        _limpiarMetadatosRecurrencia(actualizado);
-      }
-    } else if (!nuevaRecurrente) {
-      // Desactivar recurrencia:
-      // 0 = solo este mes; 1 = este y siguientes; 2 = toda la serie.
-      if (alcance == 0) {
-        final raiz = _raizSerie(original);
-        final plantillaAnterior = raiz == null ? Map<String, dynamic>.from(original) : Map<String, dynamic>.from(raiz);
-        _limpiarMetadatosRecurrencia(actualizado);
-        movimientos[indice] = actualizado;
-        if (raiz != null && raiz['id']?.toString() == idOriginal) {
-          // La entrada raíz se convierte en movimiento normal, pero la serie
-          // continúa desde la siguiente ocurrencia existente.
-          final futuras = _entradasSerie(rootId)
-              .where((m) => m['id']?.toString() != idOriginal)
-              .where((m) => convertirFecha(m['fecha']?.toString() ?? '').isAfter(fechaOriginal))
-              .toList()
-            ..sort((a,b) => convertirFecha(a['fecha']?.toString() ?? '').compareTo(convertirFecha(b['fecha']?.toString() ?? '')));
-          if (futuras.isNotEmpty) {
-            final nuevaRaiz = futuras.first;
-            final nuevaRaizId = nuevaRaiz['id']?.toString();
-            _guardarPlantillaEnRaiz(nuevaRaiz, plantillaAnterior, (plantillaAnterior['intervaloMeses'] as num?)?.toInt() ?? nuevoIntervalo);
-            nuevaRaiz['recurrenceStartDate'] = nuevaRaiz['fecha'];
-            if (nuevaRaizId != null) {
-              for (final m in movimientos) {
-                if (m['recurrenceId']?.toString() == rootId && m['id']?.toString() != nuevaRaizId) {
-                  m['recurrenceId'] = nuevaRaizId;
-                }
-              }
-            }
-          }
-        }
-      } else if (alcance == 1) {
-        // Desde este mes en adelante deja de ser recurrente. Los meses
-        // anteriores siguen perteneciendo a la serie histórica.
-        for (final m in _entradasSerie(rootId)) {
-          final f = convertirFecha(m['fecha']?.toString() ?? '');
-          if (!f.isBefore(fechaOriginal)) _limpiarMetadatosRecurrencia(m);
-        }
-        _limpiarMetadatosRecurrencia(actualizado);
-        movimientos[indice] = actualizado;
-      } else {
-        for (final m in _entradasSerie(rootId)) {
-          _limpiarMetadatosRecurrencia(m);
-        }
-        _limpiarMetadatosRecurrencia(actualizado);
-        movimientos[indice] = actualizado;
-      }
-    } else {
-      final raiz = _raizSerie(original);
-      if (raiz == null) return;
-
-      if (alcance == 0) {
-        // Solo esta entrada: es una excepción. No se toca la plantilla ni
-        // las demás entradas.
-        final fechaVieja = fechaOriginal;
-        actualizado['recurrente'] = true;
-        actualizado['recurrenceId'] = rootId;
-        actualizado['intervaloMeses'] = (original['intervaloMeses'] as num?)?.toInt() ?? nuevoIntervalo;
-        movimientos[indice] = actualizado;
-        if (fechaTexto(nuevaFecha) != fechaTexto(fechaVieja)) {
-          final omitidas = List<String>.from(raiz['recurrenciasOmitidas'] ?? const []);
-          if (!omitidas.contains(fechaTexto(fechaVieja))) omitidas.add(fechaTexto(fechaVieja));
-          raiz['recurrenciasOmitidas'] = omitidas;
-        }
-      } else if (alcance == 1) {
-        // Esta y las siguientes: todo lo anterior queda intacto. La entrada
-        // seleccionada se convierte en el nuevo punto de partida y las
-        // futuras se regeneran desde ella.
-        if (idOriginal == rootId) {
-          // Si editamos la propia raíz no la eliminamos: simplemente se mueve
-          // y se actualiza su plantilla.
-          actualizado['recurrente'] = true;
-          actualizado['recurrenceId'] = null;
-          actualizado['intervaloMeses'] = nuevoIntervalo;
-          _guardarPlantillaEnRaiz(actualizado, datosNuevos, nuevoIntervalo);
-          actualizado['recurrenceStartDate'] = fechaTexto(nuevaFecha);
-          movimientos[indice] = actualizado;
-          movimientos.removeWhere((m) {
-            final pertenece = m['recurrenceId']?.toString() == rootId;
-            if (!pertenece) return false;
-            final f = convertirFecha(m['fecha']?.toString() ?? '');
-            return !f.isAfter(nuevaFecha);
-          });
-        } else {
-          movimientos.removeWhere((m) {
-            final f = convertirFecha(m['fecha']?.toString() ?? '');
-            final pertenece = m['recurrenceId']?.toString() == rootId;
-            return pertenece && !f.isBefore(fechaOriginal);
-          });
-          actualizado['recurrente'] = true;
-          actualizado['recurrenceId'] = rootId;
-          actualizado['intervaloMeses'] = nuevoIntervalo;
-          movimientos.add(actualizado);
-          _guardarPlantillaEnRaiz(raiz, datosNuevos, nuevoIntervalo);
-          raiz['recurrenceStartDate'] = fechaTexto(nuevaFecha);
-        }
-      } else {
-        // Toda la serie: se modifican todos los movimientos existentes y la
-        // plantilla. Las fechas históricas no se recalculan ni se borran.
-        for (var i = 0; i < movimientos.length; i++) {
-          final m = movimientos[i];
-          final pertenece = m['id']?.toString() == rootId || m['recurrenceId']?.toString() == rootId;
-          if (!pertenece) continue;
-          final copia = Map<String, dynamic>.from(m);
-          _copiarPlantilla(copia, datosNuevos);
-          copia['recurrente'] = true;
-          copia['recurrenceId'] = m['id']?.toString() == rootId ? null : rootId;
-          copia['intervaloMeses'] = nuevoIntervalo;
-          movimientos[i] = copia;
-        }
-        _guardarPlantillaEnRaiz(raiz, datosNuevos, nuevoIntervalo);
-        raiz['recurrenceStartDate'] = null;
-      }
-    }
+    actualizado['fechaCreacion'] = fechaTexto(DateTime.now());
+    actualizado['categoria'] = resultado['categoria']?.toString() ?? actualizado['categoria'];
+    actualizado['subcategoria'] = resultado['subcategoria'];
+    actualizado['subsubcategoria'] = resultado['subsubcategoria'];
+    actualizado['nota'] = resultado['nota']?.toString() ?? '';
+    actualizado['recurrente'] = nuevaRecurrente;
+    actualizado['intervaloMeses'] = nuevoIntervalo;
+    actualizado['fechaFinRecurrencia'] = resultado['fechaFinRecurrencia'];
+    final categoriasActuales = esGasto ? categoriasGastos : categoriasIngresos;
+    final candidatosCat = categoriasActuales
+        .where((c) => c['nombre']?.toString() == actualizado['categoria'])
+        .toList();
+    final catActual = candidatosCat.isEmpty ? null : candidatosCat.first;
+    actualizado['categoriaId'] = catActual?['id'];
+    final subIdsActual = Map<String, dynamic>.from(catActual?['subcategoriaIds'] ?? {});
+    actualizado['subcategoriaId'] = actualizado['subcategoria'] == null ? null : subIdsActual[actualizado['subcategoria']];
+    final ssIdsActual = Map<String, dynamic>.from(catActual?['subsubcategoriaIds'] ?? {});
+    final ssMapActual = Map<String, dynamic>.from(ssIdsActual[actualizado['subcategoria']] ?? {});
+    actualizado['subsubcategoriaId'] = actualizado['subsubcategoria'] == null ? null : ssMapActual[actualizado['subsubcategoria']];
 
     final prefs = await SharedPreferences.getInstance();
     final uso = prefs.getStringList('monedas_uso') ?? [];
@@ -3952,7 +4000,143 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     }
     await prefs.setStringList('monedas_uso', uso);
 
-    setState(() => mesSeleccionado = nuevaFecha);
+    if (!mounted) return;
+
+    if (original['recurrente'] == true && !nuevaRecurrente) {
+      final recurrenceId =
+          original['recurrenceId']?.toString() ?? idOriginal;
+
+      actualizado['recurrente'] = false;
+      actualizado['recurrenceId'] = null;
+      actualizado['intervaloMeses'] = 1;
+      actualizado['plantillaCantidad'] = null;
+      actualizado['plantillaCantidadOriginal'] = null;
+      actualizado['plantillaMoneda'] = null;
+      actualizado['plantillaTipoCambio'] = null;
+      actualizado['plantillaTipoCambioPendiente'] = null;
+      actualizado['plantillaCategoria'] = null;
+      actualizado['plantillaSubcategoria'] = null;
+      actualizado['plantillaEmoji'] = null;
+      actualizado['plantillaNota'] = null;
+      actualizado['plantillaFotoPath'] = null;
+      actualizado['plantillaIntervaloMeses'] = null;
+      actualizado['plantillaFechaFinRecurrencia'] = null;
+      actualizado['fechaFinRecurrencia'] = null;
+      actualizado['recurrenciasOmitidas'] = <String>[];
+
+      movimientos[indice] = actualizado;
+
+      // Si se desactiva desde una repetición futura, también hay que
+      // detener la plantilla original; de lo contrario la app la volvería
+      // a generar al abrirse.
+      final raizIndice = movimientos.indexWhere(
+            (m) => m['id']?.toString() == recurrenceId,
+      );
+      if (raizIndice != -1 && raizIndice != indice) {
+        final raiz = Map<String, dynamic>.from(movimientos[raizIndice]);
+        raiz['recurrente'] = false;
+        raiz['recurrenceId'] = null;
+        raiz['intervaloMeses'] = 1;
+        raiz['recurrenciasOmitidas'] = <String>[];
+        raiz['plantillaCantidad'] = null;
+        raiz['plantillaCantidadOriginal'] = null;
+        raiz['plantillaMoneda'] = null;
+        raiz['plantillaTipoCambio'] = null;
+        raiz['plantillaTipoCambioPendiente'] = null;
+        raiz['plantillaCategoria'] = null;
+        raiz['plantillaSubcategoria'] = null;
+        raiz['plantillaEmoji'] = null;
+        raiz['plantillaNota'] = null;
+        raiz['plantillaFotoPath'] = null;
+        raiz['plantillaIntervaloMeses'] = null;
+        raiz['plantillaFechaFinRecurrencia'] = null;
+        raiz['fechaFinRecurrencia'] = null;
+        movimientos[raizIndice] = raiz;
+      }
+
+      movimientos.removeWhere((m) {
+        final mismo =
+            m['id']?.toString() == recurrenceId ||
+                m['recurrenceId']?.toString() == recurrenceId;
+        if (!mismo) return false;
+
+        final f = convertirFecha(m['fecha']?.toString() ?? '');
+        final esOtraEntrada =
+            m['id']?.toString() != idOriginal;
+        return esOtraEntrada && f.isAfter(nuevaFecha);
+      });
+    } else if (alcance == 1 && actualizado['recurrente'] == true) {
+      final recurrenceId = original['recurrenceId']?.toString() ?? idOriginal;
+      final hoy = DateTime.now();
+      final inicioFuturo = DateTime(hoy.year, hoy.month, 1);
+      final fechaSeleccionada = convertirFecha(original['fecha']?.toString() ?? '');
+      final fechaMinima = fechaSeleccionada.isBefore(inicioFuturo)
+          ? inicioFuturo
+          : fechaSeleccionada;
+
+      // La plantilla guarda el nuevo valor sin tocar las entradas pasadas.
+      final fuente = movimientos.firstWhere(
+            (m) => m['id']?.toString() == recurrenceId,
+        orElse: () => actualizado,
+      );
+      fuente['plantillaCantidad'] = actualizado['cantidad'];
+      fuente['plantillaCantidadOriginal'] = actualizado['cantidadOriginal'];
+      fuente['plantillaMoneda'] = actualizado['moneda'];
+      fuente['plantillaTipoCambio'] = actualizado['tipoCambio'];
+      fuente['plantillaTipoCambioPendiente'] = actualizado['tipoCambioPendiente'];
+      fuente['plantillaCategoria'] = actualizado['categoria'];
+      fuente['plantillaSubcategoria'] = actualizado['subcategoria'];
+      fuente['plantillaEmoji'] = actualizado['emoji'];
+      fuente['plantillaNota'] = actualizado['nota'] ?? '';
+      fuente['plantillaFechaFinRecurrencia'] = actualizado['fechaFinRecurrencia'];
+      fuente['plantillaFotoPath'] = actualizado['fotoPath'];
+      fuente['plantillaIntervaloMeses'] = actualizado['intervaloMeses'] ?? 1;
+
+      // Si estamos editando la plantilla (la primera entrada de la serie),
+      // actualizamos también esa entrada si está dentro del periodo futuro.
+      if (original['recurrenceId'] == null) {
+        final fechaFuente = convertirFecha(original['fecha']?.toString() ?? '');
+        if (!fechaFuente.isBefore(fechaMinima)) {
+          movimientos[indice] = actualizado;
+        }
+      }
+
+      // Las repeticiones generadas se actualizan desde el mes elegido en adelante.
+      for (var i = 0; i < movimientos.length; i++) {
+        final m = movimientos[i];
+        if (m['recurrenceId']?.toString() == recurrenceId) {
+          final fechaM = convertirFecha(m['fecha']?.toString() ?? '');
+          if (!fechaM.isBefore(fechaMinima)) {
+            final copia = Map<String, dynamic>.from(actualizado);
+            copia['id'] = m['id'];
+            copia['recurrenceId'] = m['recurrenceId'];
+            copia['fecha'] = m['fecha'];
+            copia['fechaCreacion'] = actualizado['fechaCreacion'];
+            copia['hora'] = m['hora'];
+            // Las entradas generadas no son la plantilla.
+            copia['plantillaCantidad'] = null;
+            copia['plantillaCantidadOriginal'] = null;
+            copia['plantillaMoneda'] = null;
+            copia['plantillaTipoCambio'] = null;
+            copia['plantillaTipoCambioPendiente'] = null;
+            copia['plantillaCategoria'] = null;
+            copia['plantillaSubcategoria'] = null;
+            copia['plantillaEmoji'] = null;
+            copia['plantillaNota'] = null;
+            copia['plantillaFotoPath'] = null;
+            copia['plantillaIntervaloMeses'] = null;
+            movimientos[i] = copia;
+          }
+        }
+      }
+    } else {
+      movimientos[indice] = actualizado;
+    }
+
+    setState(() {
+      mesSeleccionado = nuevaFecha;
+    });
+
     await guardarDatos();
     await generarRecurrentesPendientes();
   }
@@ -4877,11 +5061,12 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     }).toList()
       ..sort(compararMovimientosPorFechaHoraAsc);
 
-    final movimientosMostrados =
-    (_mostrarProximosMovimientos
+    final listaBaseMovimientos = _mostrarProximosMovimientos
         ? movimientosProximos
-        : movimientosRecientes)
-        .take(12)
+        : movimientosRecientes;
+
+    final movimientosMostrados = listaBaseMovimientos
+        .take(_limiteMovimientosInicio)
         .toList();
 
     return Scaffold(
@@ -5164,12 +5349,21 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
               final esGasto=movimiento['tipo']=='Gasto'; final esAjuste=movimiento['tipo']=='Ajuste';
               final cantidad=((movimiento['cantidad'] as num?)??0).toDouble(); final pendiente=movimiento['tipoCambioPendiente']==true;
               final cantidadOriginal=((movimiento['cantidadOriginal'] as num?)??cantidad).toDouble(); final monedaMovimiento=movimiento['moneda']?.toString()??'EUR';
+              final partesCategoria = <String>[
+                if ((movimiento['categoria']?.toString() ?? '').isNotEmpty)
+                  movimiento['categoria'].toString(),
+                if ((movimiento['subcategoria']?.toString() ?? '').isNotEmpty)
+                  movimiento['subcategoria'].toString(),
+                if ((movimiento['subsubcategoria']?.toString() ?? '').isNotEmpty)
+                  movimiento['subsubcategoria'].toString(),
+              ];
+
               final subtitulo = [
                 movimiento['fecha']?.toString() ?? '',
-                if (movimiento['subcategoria'] != null)
-                  movimiento['subcategoria'].toString(),
+                if (partesCategoria.isNotEmpty)
+                  partesCategoria.join(' · '),
                 if (movimiento['nota']?.toString().trim().isNotEmpty ?? false)
-                  '📝',
+                  '📝 ${movimiento['nota'].toString().trim()}',
                 if (movimiento['fotoPath']?.toString().trim().isNotEmpty ?? false)
                   '📷',
                 if (pendiente) '⏳ cambio pendiente',
@@ -5237,6 +5431,20 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
                 ),
               );
             }),
+            if (listaBaseMovimientos.length > movimientosMostrados.length)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 4),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => setState(() {
+                      _limiteMovimientosInicio += 12;
+                    }),
+                    icon: const Icon(Icons.expand_more),
+                    label: const Text('Cargar más movimientos'),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -6164,6 +6372,7 @@ class _NuevoMovimientoState
   String? fotoPath;
 
   final cantidadController = TextEditingController();
+  final monedaController = TextEditingController(text: 'EUR');
   final intervaloController = TextEditingController(text: '1');
   final notaController = TextEditingController();
 
@@ -6190,6 +6399,7 @@ class _NuevoMovimientoState
               ?.toString();
 
       moneda = existente['moneda']?.toString() ?? 'EUR';
+      monedaController.text = moneda;
       cantidadOriginal = ((existente['cantidadOriginal'] as num?) ?? (existente['cantidad'] as num?) ?? 0).toDouble();
       tipoCambio = ((existente['tipoCambio'] as num?) ?? 1).toDouble();
       _tipoCambioPendiente = existente['tipoCambioPendiente'] == true;
@@ -6280,6 +6490,70 @@ class _NuevoMovimientoState
     if(mounted)setState((){});
   }
 
+  void actualizarMonedaDesdeTexto(String texto) {
+    final consulta = texto.trim().toUpperCase();
+    if (consulta.isEmpty) return;
+
+    final coincidencias = monedasDisponibles.where((m) {
+      final codigo = m['codigo']!.toUpperCase();
+      final nombre = m['nombre']!.toUpperCase();
+      final pais = m['pais']!.toUpperCase();
+      return codigo.startsWith(consulta) ||
+          nombre.startsWith(consulta) ||
+          pais.startsWith(consulta);
+    }).toList();
+
+    if (coincidencias.length == 1 && consulta.length >= 2) {
+      final codigo = coincidencias.first['codigo']!;
+      moneda = codigo;
+      if (monedaController.text != codigo) {
+        monedaController.value = TextEditingValue(
+          text: codigo,
+          selection: TextSelection.collapsed(offset: codigo.length),
+        );
+      }
+      if (mounted) setState(() {});
+    } else if (monedasDisponibles.any(
+            (m) => m['codigo']!.toUpperCase() == consulta)) {
+      moneda = consulta;
+      if (mounted) setState(() {});
+    }
+  }
+
+  void confirmarTextoMoneda() {
+    final consulta = monedaController.text.trim().toUpperCase();
+    if (consulta.isEmpty) {
+      moneda = 'EUR';
+      monedaController.text = 'EUR';
+      return;
+    }
+
+    final exacta = monedasDisponibles.where(
+          (m) => m['codigo']!.toUpperCase() == consulta,
+    );
+    if (exacta.isNotEmpty) {
+      moneda = exacta.first['codigo']!;
+      monedaController.text = moneda;
+      return;
+    }
+
+    final coincidencias = monedasDisponibles.where((m) {
+      final codigo = m['codigo']!.toUpperCase();
+      final nombre = m['nombre']!.toUpperCase();
+      final pais = m['pais']!.toUpperCase();
+      return codigo.startsWith(consulta) ||
+          nombre.startsWith(consulta) ||
+          pais.startsWith(consulta);
+    }).toList();
+
+    if (coincidencias.length == 1) {
+      moneda = coincidencias.first['codigo']!;
+      monedaController.text = moneda;
+    } else {
+      monedaController.text = moneda;
+    }
+  }
+
   Future<void> buscarYAnadirMoneda() async {
     FocusScope.of(context).unfocus();
     final prefs = await SharedPreferences.getInstance();
@@ -6316,7 +6590,9 @@ class _NuevoMovimientoState
     );
     if (seleccion == null || !mounted) return;
 
-    if (mounted) setState(() => moneda = seleccion);
+    moneda = seleccion;
+    monedaController.text = seleccion;
+    if (mounted) setState(() {});
   }
 
   Future<void> registrarUsoMoneda(String codigo) async {
@@ -6331,6 +6607,7 @@ class _NuevoMovimientoState
   @override
   void dispose() {
     cantidadController.dispose();
+    monedaController.dispose();
     intervaloController.dispose();
     notaController.dispose();
     super.dispose();
@@ -6338,13 +6615,19 @@ class _NuevoMovimientoState
 
   List<Map<String, dynamic>>
   get categorias {
-    if (tipo == 'Ingreso') {
-      return widget
-          .categoriasIngresos;
-    }
+    final lista = List<Map<String, dynamic>>.from(
+      tipo == 'Ingreso'
+          ? widget.categoriasIngresos
+          : widget.categoriasGastos,
+    );
 
-    return widget
-        .categoriasGastos;
+    lista.sort(
+          (a, b) => (a['nombre']?.toString() ?? '')
+          .toLowerCase()
+          .compareTo((b['nombre']?.toString() ?? '').toLowerCase()),
+    );
+
+    return lista;
   }
 
   Map<String, dynamic>?
@@ -6461,6 +6744,7 @@ class _NuevoMovimientoState
   // ==========================================================
 
   Future<void> confirmarCantidad() async {
+    confirmarTextoMoneda();
     final valor =
     double.tryParse(
       cantidadController.text
@@ -6666,6 +6950,7 @@ class _NuevoMovimientoState
   // ==========================================================
 
   Future<void> guardar() async {
+    confirmarTextoMoneda();
     final valor = double.tryParse(
       cantidadController.text.trim().replaceAll(',', '.'),
     );
@@ -7034,33 +7319,42 @@ class _NuevoMovimientoState
                 ),
               ),
               const SizedBox(height: 8),
-              TextField(
-                controller: cantidadController,
-
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: InputDecoration(
-                  labelText: 'Cantidad',
-                  suffixIcon: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: buscarYAnadirMoneda,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Center(
-                        widthFactor: 1,
-                        child: Text(
-                          moneda,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: cantidadController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Cantidad',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 105,
+                    child: TextField(
+                      controller: monedaController,
+                      textCapitalization: TextCapitalization.characters,
+                      textInputAction: TextInputAction.next,
+                      onChanged: actualizarMonedaDesdeTexto,
+                      onSubmitted: (_) => confirmarTextoMoneda(),
+                      decoration: InputDecoration(
+                        labelText: 'Moneda',
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          tooltip: 'Buscar moneda',
+                          icon: const Icon(Icons.search, size: 20),
+                          onPressed: buscarYAnadirMoneda,
                         ),
                       ),
                     ),
                   ),
-                  border: const OutlineInputBorder(),
-                ),
+                ],
               ),
               const SizedBox(height: 4),
               const Text(
@@ -10559,6 +10853,11 @@ class _GestionCategoriasPageState extends State<GestionCategoriasPage> {
     for (final categoria in widget.lista) {
       if (categoria['archivada'] != true) activas.add(categoria);
     }
+    activas.sort(
+          (a, b) => (a['nombre']?.toString() ?? '')
+          .toLowerCase()
+          .compareTo((b['nombre']?.toString() ?? '').toLowerCase()),
+    );
 
     return Scaffold(
       appBar: AppBar(
