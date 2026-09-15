@@ -1759,7 +1759,9 @@ class ServicioFirebase {
   Future<void> cerrarSesion() async {
     _googleAccount = null;
     if (!kIsWeb) {
-      try { await GoogleSignIn.instance.signOut(); } catch (_) {}
+      try {
+        await GoogleSignIn.instance.signOut();
+      } catch (_) {}
     }
     await _auth.signOut();
   }
@@ -1767,33 +1769,224 @@ class ServicioFirebase {
   DocumentReference<Map<String, dynamic>>? get _documentoDatos {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return null;
-    return _firestore.collection('usuarios').doc(uid).collection('datos').doc('principal');
+    return _firestore
+        .collection('usuarios')
+        .doc(uid)
+        .collection('datos')
+        .doc('principal');
+  }
+
+  CollectionReference<Map<String, dynamic>>? get _partesDatos {
+    final documento = _documentoDatos;
+    if (documento == null) return null;
+    return documento.collection('partes');
+  }
+
+  static const int _tamanoMaximoParte = 700000;
+
+  List<List<dynamic>> _dividirLista(List<dynamic> lista) {
+    if (lista.isEmpty) return <List<dynamic>>[];
+
+    final resultado = <List<dynamic>>[];
+    var actual = <dynamic>[];
+    var bytesActual = 2; // [ ]
+
+    for (final elemento in lista) {
+      final bytesElemento = utf8.encode(jsonEncode(elemento)).length;
+      final bytesNecesarios =
+          bytesActual + bytesElemento + (actual.isEmpty ? 0 : 1);
+
+      if (actual.isNotEmpty && bytesNecesarios > _tamanoMaximoParte) {
+        resultado.add(actual);
+        actual = <dynamic>[elemento];
+        bytesActual = bytesElemento + 2;
+      } else {
+        actual.add(elemento);
+        bytesActual = bytesNecesarios + (actual.length == 1 ? 1 : 0);
+      }
+
+      // Si un elemento individual es excepcionalmente grande, lo dejamos
+      // como una parte independiente para que el error sea identificable.
+      if (actual.length == 1 &&
+          bytesActual > _tamanoMaximoParte) {
+        throw Exception(
+          'Uno de los elementos de los datos de PastApp es demasiado grande '
+              'para guardarlo en Firebase.',
+        );
+      }
+    }
+
+    if (actual.isNotEmpty) resultado.add(actual);
+    return resultado;
+  }
+
+  Future<void> _guardarParte(
+      CollectionReference<Map<String, dynamic>> partes,
+      String tipo,
+      int indice,
+      List<dynamic> datos,
+      ) async {
+    await partes.doc('${tipo}_${indice.toString().padLeft(5, '0')}').set({
+      'version': 6,
+      'tipo': tipo,
+      'indice': indice,
+      'datos': datos,
+    });
   }
 
   Future<void> subirDatos(Map<String, dynamic> datos) async {
     final documento = _documentoDatos;
-    if (documento == null) {
+    final partes = _partesDatos;
+
+    if (documento == null || partes == null) {
       throw Exception('No hay una cuenta de Google conectada.');
     }
 
-    // Firestore limita cada documento a 1 MiB. Detectamos aquí un documento
-    // demasiado grande para que el error no quede oculto por la sincronización.
-    final bytes = utf8.encode(jsonEncode(datos)).length;
-    if (bytes >= 950000) {
-      throw Exception(
-        'Los datos de PastApp ocupan ${(bytes / 1024).toStringAsFixed(0)} KB y se acercan al límite de 1 MiB de Firebase.',
-      );
+    // Firestore tiene un límite de 1 MiB por documento. Antes PastApp
+    // intentaba guardar todos los movimientos en "principal", lo que hacía
+    // que una copia de varios años acabara superando ese límite.
+    //
+    // A partir de aquí "principal" contiene solamente metadatos y cada lista
+    // grande se guarda en documentos independientes dentro de /partes.
+    const camposSeparados = <String>[
+      'movimientos',
+      'historicos',
+      'patrimonios',
+      'categoriasGastos',
+      'categoriasIngresos',
+      'correcciones',
+      'categoriasPatrimonio',
+    ];
+
+    final conteos = <String, int>{};
+    final listas = <String, List<List<dynamic>>>{};
+
+    for (final campo in camposSeparados) {
+      final valor = datos[campo];
+      final lista = valor is List ? List<dynamic>.from(valor) : <dynamic>[];
+      final partesCampo = _dividirLista(lista);
+      listas[campo] = partesCampo;
+      conteos[campo] = partesCampo.length;
     }
 
-    await documento.set(datos);
+    final principal = <String, dynamic>{
+      'version': 6,
+      'formatoDatos': 2,
+      'fechaModificacion':
+      datos['fechaModificacion'] ?? DateTime.now().toUtc().toIso8601String(),
+      'fechaSincronizacion':
+      datos['fechaSincronizacion'] ?? DateTime.now().toUtc().toIso8601String(),
+      'balanceInicial': datos['balanceInicial'] ?? 0,
+      'conteosPartes': conteos,
+    };
+
+    // Guardamos primero las partes nuevas. Así, si una operación falla,
+    // "principal" sigue apuntando a la versión anterior.
+    for (final entrada in listas.entries) {
+      final tipo = entrada.key;
+      final partesCampo = entrada.value;
+
+      for (var i = 0; i < partesCampo.length; i++) {
+        await _guardarParte(partes, tipo, i, partesCampo[i]);
+      }
+    }
+
+    // El manifiesto se publica al final. Desde este momento los dispositivos
+    // nuevos saben exactamente qué partes deben leer.
+    await documento.set(principal);
+
+    // Eliminamos partes antiguas que hayan sobrado de una versión anterior.
+    // Solo se hace después de publicar correctamente la nueva versión.
+    final snapshotPartes = await partes.get();
+    final idsValidos = <String>{};
+
+    for (final entrada in listas.entries) {
+      final tipo = entrada.key;
+      final partesCampo = entrada.value;
+      for (var i = 0; i < partesCampo.length; i++) {
+        idsValidos.add('${tipo}_${i.toString().padLeft(5, '0')}');
+      }
+    }
+
+    final antiguas = snapshotPartes.docs
+        .where((doc) => !idsValidos.contains(doc.id))
+        .toList();
+
+    for (var inicio = 0; inicio < antiguas.length; inicio += 450) {
+      final batch = _firestore.batch();
+      final fin = math.min(inicio + 450, antiguas.length);
+      for (var i = inicio; i < fin; i++) {
+        batch.delete(antiguas[i].reference);
+      }
+      await batch.commit();
+    }
   }
 
   Future<Map<String, dynamic>?> descargarDatos() async {
     final documento = _documentoDatos;
-    if (documento == null) throw Exception('No hay una cuenta de Google conectada.');
+    final partes = _partesDatos;
+
+    if (documento == null || partes == null) {
+      throw Exception('No hay una cuenta de Google conectada.');
+    }
+
     final snapshot = await documento.get();
     if (!snapshot.exists || snapshot.data() == null) return null;
-    return Map<String, dynamic>.from(snapshot.data()!);
+
+    final principal = Map<String, dynamic>.from(snapshot.data()!);
+
+    // Compatibilidad con la estructura antigua: si todavía no se ha migrado
+    // este documento, devolvemos sus campos directamente.
+    if (principal['formatoDatos'] != 2) {
+      return principal;
+    }
+
+    final resultado = <String, dynamic>{
+      'version': principal['version'] ?? 6,
+      'fechaModificacion': principal['fechaModificacion'],
+      'fechaSincronizacion': principal['fechaSincronizacion'],
+      'balanceInicial': principal['balanceInicial'] ?? 0,
+    };
+
+    const camposSeparados = <String>[
+      'movimientos',
+      'historicos',
+      'patrimonios',
+      'categoriasGastos',
+      'categoriasIngresos',
+      'correcciones',
+      'categoriasPatrimonio',
+    ];
+
+    final snapshotPartes = await partes.get();
+    final porCampo = <String, List<Map<String, dynamic>>>{};
+
+    for (final doc in snapshotPartes.docs) {
+      final data = doc.data();
+      final tipo = data['tipo']?.toString();
+      if (tipo == null || !camposSeparados.contains(tipo)) continue;
+      porCampo.putIfAbsent(tipo, () => <Map<String, dynamic>>[]).add(data);
+    }
+
+    for (final campo in camposSeparados) {
+      final docs = porCampo[campo] ?? <Map<String, dynamic>>[];
+      docs.sort((a, b) {
+        final ai = (a['indice'] as num?)?.toInt() ?? 0;
+        final bi = (b['indice'] as num?)?.toInt() ?? 0;
+        return ai.compareTo(bi);
+      });
+
+      final lista = <dynamic>[];
+      for (final doc in docs) {
+        final datosParte = doc['datos'];
+        if (datosParte is List) {
+          lista.addAll(datosParte);
+        }
+      }
+      resultado[campo] = lista;
+    }
+
+    return resultado;
   }
 }
 
