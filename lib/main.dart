@@ -1782,7 +1782,7 @@ class ServicioFirebase {
     return documento.collection('partes');
   }
 
-  static const int _tamanoMaximoParte = 700000;
+  static const int _tamanoMaximoParte = 650000;
 
   List<List<dynamic>> _dividirLista(List<dynamic> lista) {
     if (lista.isEmpty) return <List<dynamic>>[];
@@ -1968,6 +1968,10 @@ class ServicioFirebase {
       porCampo.putIfAbsent(tipo, () => <Map<String, dynamic>>[]).add(data);
     }
 
+    final conteosEsperados = Map<String, dynamic>.from(
+      (principal['conteosPartes'] as Map?) ?? <String, dynamic>{},
+    );
+
     for (final campo in camposSeparados) {
       final docs = porCampo[campo] ?? <Map<String, dynamic>>[];
       docs.sort((a, b) {
@@ -1976,12 +1980,32 @@ class ServicioFirebase {
         return ai.compareTo(bi);
       });
 
+      final esperado = (conteosEsperados[campo] as num?)?.toInt() ?? 0;
+      if (docs.length != esperado) {
+        throw Exception(
+          'Sincronización incompleta: faltan datos de $campo. '
+              'Esperadas $esperado partes y se han encontrado ${docs.length}.',
+        );
+      }
+
+      for (var i = 0; i < docs.length; i++) {
+        final indice = (docs[i]['indice'] as num?)?.toInt();
+        if (indice != i) {
+          throw Exception(
+            'Sincronización incompleta: falta una parte de $campo (índice $i).',
+          );
+        }
+      }
+
       final lista = <dynamic>[];
       for (final doc in docs) {
         final datosParte = doc['datos'];
-        if (datosParte is List) {
-          lista.addAll(datosParte);
+        if (datosParte is! List) {
+          throw Exception(
+            'Sincronización incompleta: una parte de $campo no contiene una lista válida.',
+          );
         }
+        lista.addAll(datosParte);
       }
       resultado[campo] = lista;
     }
@@ -2742,6 +2766,19 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
 
     try {
       _sincronizacionEnCurso = true;
+      if (movimientos.isEmpty && historicos.isEmpty && _datosInicialesCargados) {
+        final prefs = await SharedPreferences.getInstance();
+        final movimientosGuardados = prefs.getString('movimientos');
+        final historicosGuardados = prefs.getString('historicos');
+        final hayDatosLocales =
+            (movimientosGuardados != null && movimientosGuardados != '[]') ||
+                (historicosGuardados != null && historicosGuardados != '[]');
+        if (hayDatosLocales) {
+          throw Exception(
+            'Se ha evitado subir una copia vacía porque existen datos locales guardados.',
+          );
+        }
+      }
       await _firebase.subirDatos(_datosParaSincronizar());
       _cambiosLocalesPendientesDeSubir = false;
       final prefs = await SharedPreferences.getInstance();
