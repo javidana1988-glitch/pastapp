@@ -1772,7 +1772,19 @@ class ServicioFirebase {
 
   Future<void> subirDatos(Map<String, dynamic> datos) async {
     final documento = _documentoDatos;
-    if (documento == null) throw Exception('No hay una cuenta de Google conectada.');
+    if (documento == null) {
+      throw Exception('No hay una cuenta de Google conectada.');
+    }
+
+    // Firestore limita cada documento a 1 MiB. Detectamos aquí un documento
+    // demasiado grande para que el error no quede oculto por la sincronización.
+    final bytes = utf8.encode(jsonEncode(datos)).length;
+    if (bytes >= 950000) {
+      throw Exception(
+        'Los datos de PastApp ocupan ${(bytes / 1024).toStringAsFixed(0)} KB y se acercan al límite de 1 MiB de Firebase.',
+      );
+    }
+
     await documento.set(datos);
   }
 
@@ -1841,6 +1853,8 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   bool _sincronizacionEnCurso = false;
   bool _aplicandoDatosRemotos = false;
   String? _ultimaModificacionLocal;
+  bool _cambiosLocalesPendientesDeSubir = false;
+  String? _ultimoErrorSincronizacion;
 
   @override
   void initState() {
@@ -2057,6 +2071,8 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     final prefs = await SharedPreferences.getInstance();
 
     _ultimaModificacionLocal = prefs.getString('ultima_modificacion_local');
+    _cambiosLocalesPendientesDeSubir =
+        prefs.getBool('cambios_locales_pendientes_subir') ?? false;
 
     final movimientosGuardados =
     prefs.getString('movimientos');
@@ -2523,37 +2539,110 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
   }
 
   Future<void> _subirCambiosAutomaticamente() async {
-    if (!_sincronizacionAutomaticaActiva || _sincronizacionEnCurso || _aplicandoDatosRemotos || _firebase.usuario == null) return;
+    if (!_sincronizacionAutomaticaActiva ||
+        _sincronizacionEnCurso ||
+        _aplicandoDatosRemotos ||
+        _firebase.usuario == null ||
+        !_cambiosLocalesPendientesDeSubir) {
+      return;
+    }
+
     try {
       _sincronizacionEnCurso = true;
       await _firebase.subirDatos(_datosParaSincronizar());
-    } catch (_) {} finally { _sincronizacionEnCurso = false; }
+      _cambiosLocalesPendientesDeSubir = false;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('cambios_locales_pendientes_subir', false);
+      _ultimoErrorSincronizacion = null;
+    } catch (e) {
+      _ultimoErrorSincronizacion = e.toString();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'No se han podido guardar los cambios en Firebase: ${e.toString().replaceFirst('Exception: ', '')}',
+            ),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+      _programarSubidaAutomatica();
+    } finally {
+      _sincronizacionEnCurso = false;
+    }
   }
 
   Future<void> _comprobarSincronizacionAutomatica() async {
-    if (!_sincronizacionAutomaticaActiva || _sincronizacionEnCurso || !_datosInicialesCargados || _aplicandoDatosRemotos || _firebase.usuario == null) return;
+    if (!_sincronizacionAutomaticaActiva ||
+        _sincronizacionEnCurso ||
+        !_datosInicialesCargados ||
+        _aplicandoDatosRemotos ||
+        _firebase.usuario == null) {
+      return;
+    }
+
     try {
       _sincronizacionEnCurso = true;
+
+      // Si este dispositivo tiene cambios que todavía no han llegado a
+      // Firebase, SIEMPRE tienen prioridad. Esto evita que al arrancar o al
+      // ejecutarse el comprobador periódico una copia remota antigua borre
+      // movimientos recién introducidos en septiembre.
+      if (_cambiosLocalesPendientesDeSubir) {
+        await _firebase.subirDatos(_datosParaSincronizar());
+        _cambiosLocalesPendientesDeSubir = false;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('cambios_locales_pendientes_subir', false);
+        _ultimoErrorSincronizacion = null;
+        return;
+      }
+
       final datosRemotos = await _firebase.descargarDatos();
+
       if (datosRemotos == null) {
         if (_ultimaModificacionLocal == null) {
           _ultimaModificacionLocal = DateTime.now().toUtc().toIso8601String();
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('ultima_modificacion_local', _ultimaModificacionLocal!);
+          await prefs.setString(
+            'ultima_modificacion_local',
+            _ultimaModificacionLocal!,
+          );
         }
         await _firebase.subirDatos(_datosParaSincronizar());
+        _ultimoErrorSincronizacion = null;
         return;
       }
+
       final fechaRemota = _fechaDeDatosRemotos(datosRemotos);
       final fechaLocal = _fechaDeDatosLocales();
+
       if (fechaLocal == null && fechaRemota != null) {
         await _aplicarDatosSincronizados(datosRemotos);
-      } else if (fechaRemota != null && fechaLocal != null && fechaRemota.isAfter(fechaLocal)) {
+      } else if (fechaRemota != null &&
+          fechaLocal != null &&
+          fechaRemota.isAfter(fechaLocal)) {
         await _aplicarDatosSincronizados(datosRemotos);
-      } else if (fechaLocal != null && (fechaRemota == null || fechaLocal.isAfter(fechaRemota))) {
+      } else if (fechaLocal != null &&
+          (fechaRemota == null || fechaLocal.isAfter(fechaRemota))) {
         await _firebase.subirDatos(_datosParaSincronizar());
       }
-    } catch (_) {} finally { _sincronizacionEnCurso = false; }
+      _ultimoErrorSincronizacion = null;
+    } catch (e) {
+      _ultimoErrorSincronizacion = e.toString();
+      if (mounted) {
+        // No interrumpimos la aplicación, pero dejamos el error visible.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error de sincronización: ${e.toString().replaceFirst('Exception: ', '')}',
+            ),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+    } finally {
+      _sincronizacionEnCurso = false;
+    }
   }
 
   Future<void> sincronizarConGoogle() async {
@@ -2728,25 +2817,35 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
     if (marcarComoCambioLocal &&
         _datosInicialesCargados &&
         !_aplicandoDatosRemotos) {
-      // Los cambios hechos por el usuario se suben inmediatamente a Firebase.
-      // El temporizador queda solo como reintento de seguridad. Así, al
-      // recargar la web no vuelve a aparecer la copia anterior.
+      // Marcamos el cambio como pendiente ANTES de intentar la subida.
+      // Si Firebase falla, al siguiente arranque no se descargará una copia
+      // antigua que pueda hacer desaparecer los cambios locales.
+      _cambiosLocalesPendientesDeSubir = true;
+      await prefs.setBool('cambios_locales_pendientes_subir', true);
       _timerSubidaAutomatica?.cancel();
 
-      if (_firebase.usuario != null) {
+      if (_firebase.usuario != null && !_sincronizacionEnCurso) {
         try {
-          if (_sincronizacionEnCurso) {
-            _programarSubidaAutomatica();
-          } else {
-            _sincronizacionEnCurso = true;
-            try {
-              await _firebase.subirDatos(_datosParaSincronizar());
-            } finally {
-              _sincronizacionEnCurso = false;
-            }
+          _sincronizacionEnCurso = true;
+          await _firebase.subirDatos(_datosParaSincronizar());
+          _cambiosLocalesPendientesDeSubir = false;
+          await prefs.setBool('cambios_locales_pendientes_subir', false);
+          _ultimoErrorSincronizacion = null;
+        } catch (e) {
+          _ultimoErrorSincronizacion = e.toString();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'No se han podido guardar los cambios en Firebase: ${e.toString().replaceFirst('Exception: ', '')}',
+                ),
+                duration: const Duration(seconds: 6),
+              ),
+            );
           }
-        } catch (_) {
           _programarSubidaAutomatica();
+        } finally {
+          _sincronizacionEnCurso = false;
         }
       } else {
         _programarSubidaAutomatica();
