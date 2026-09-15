@@ -6434,6 +6434,35 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
           patrimonios: patrimonios,
         );
       case 3:
+        return SeguimientoInmueblesPage(
+          inmuebles: seguimientoInmuebles,
+          movimientos: movimientos,
+          onChanged: (datos) async {
+            setState(() => seguimientoInmuebles = datos);
+            await guardarDatos();
+          },
+          onMovimientosChanged: () async {
+            setState(() {});
+            await guardarDatos();
+          },
+        );
+      case 4:
+        return DeudasPage(
+          deudas: deudas,
+          onChanged: (datos) async {
+            setState(() => deudas = datos);
+            await guardarDatos();
+          },
+        );
+      case 5:
+        return InversionesPage(
+          inversiones: inversiones,
+          onChanged: (datos) async {
+            setState(() => inversiones = datos);
+            await guardarDatos();
+          },
+        );
+      case 6:
         return Ajustes(
           movimientos: movimientos,
           categoriasGastos: categoriasGastos,
@@ -6458,35 +6487,6 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
           },
           modoOscuro: widget.modoOscuro,
           onModoOscuroChanged: widget.onModoOscuroChanged,
-        );
-      case 4:
-        return SeguimientoInmueblesPage(
-          inmuebles: seguimientoInmuebles,
-          movimientos: movimientos,
-          onChanged: (datos) async {
-            setState(() => seguimientoInmuebles = datos);
-            await guardarDatos();
-          },
-          onMovimientosChanged: () async {
-            setState(() {});
-            await guardarDatos();
-          },
-        );
-      case 5:
-        return DeudasPage(
-          deudas: deudas,
-          onChanged: (datos) async {
-            setState(() => deudas = datos);
-            await guardarDatos();
-          },
-        );
-      case 6:
-        return InversionesPage(
-          inversiones: inversiones,
-          onChanged: (datos) async {
-            setState(() => inversiones = datos);
-            await guardarDatos();
-          },
         );
       default:
         return pantallaInicio();
@@ -6589,10 +6589,10 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
             _botonNavegacionWeb(indice: 0, icono: Icons.home_outlined, iconoSeleccionado: Icons.home, texto: 'Inicio'),
             _botonNavegacionWeb(indice: 1, icono: Icons.calendar_month_outlined, iconoSeleccionado: Icons.calendar_month, texto: 'Calendario'),
             _botonNavegacionWeb(indice: 2, icono: Icons.bar_chart_outlined, iconoSeleccionado: Icons.bar_chart, texto: 'Estadísticas'),
-            _botonNavegacionWeb(indice: 3, icono: Icons.settings_outlined, iconoSeleccionado: Icons.settings, texto: 'Ajustes'),
-            _botonNavegacionWeb(indice: 4, icono: Icons.home_work_outlined, iconoSeleccionado: Icons.home_work, texto: 'Inmuebles'),
-            _botonNavegacionWeb(indice: 5, icono: Icons.account_balance_outlined, iconoSeleccionado: Icons.account_balance, texto: 'Deudas'),
-            _botonNavegacionWeb(indice: 6, icono: Icons.trending_up_outlined, iconoSeleccionado: Icons.trending_up, texto: 'Inversiones'),
+            _botonNavegacionWeb(indice: 3, icono: Icons.home_work_outlined, iconoSeleccionado: Icons.home_work, texto: 'Inmuebles'),
+            _botonNavegacionWeb(indice: 4, icono: Icons.account_balance_outlined, iconoSeleccionado: Icons.account_balance, texto: 'Deudas'),
+            _botonNavegacionWeb(indice: 5, icono: Icons.trending_up_outlined, iconoSeleccionado: Icons.trending_up, texto: 'Inversiones'),
+            _botonNavegacionWeb(indice: 6, icono: Icons.settings_outlined, iconoSeleccionado: Icons.settings, texto: 'Ajustes'),
             const Spacer(),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
@@ -6656,31 +6656,6 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
             historicos: historicos,
             patrimonios: patrimonios,
           ),
-          Ajustes(
-            movimientos: movimientos,
-            categoriasGastos: categoriasGastos,
-            categoriasIngresos: categoriasIngresos,
-            onCategoriasChanged: () async {
-              setState(() {});
-              await guardarDatos();
-            },
-            onExportarDatos: exportarDatos,
-            onExportarExcel: exportarExcel,
-            onImportarDatos: importarDatos,
-            googleUsuario: _firebase.usuario?.email,
-            googleSincronizando: _googleSincronizando,
-            onGoogleConectar: conectarGoogleDesdeAjustes,
-            onGoogleDesconectar: desconectarGoogleDesdeAjustes,
-            onGoogleSincronizar: sincronizarConGoogle,
-            onGoogleRestaurar: restaurarDesdeGoogle,
-            historicos: historicos,
-            onHistoricosChanged: () async {
-              setState(() {});
-              await guardarDatos();
-            },
-            modoOscuro: widget.modoOscuro,
-            onModoOscuroChanged: widget.onModoOscuroChanged,
-          ),
           SeguimientoInmueblesPage(
             inmuebles: seguimientoInmuebles,
             movimientos: movimientos,
@@ -6707,6 +6682,31 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
               await guardarDatos();
             },
           ),
+          Ajustes(
+            movimientos: movimientos,
+            categoriasGastos: categoriasGastos,
+            categoriasIngresos: categoriasIngresos,
+            onCategoriasChanged: () async {
+              setState(() {});
+              await guardarDatos();
+            },
+            onExportarDatos: exportarDatos,
+            onExportarExcel: exportarExcel,
+            onImportarDatos: importarDatos,
+            googleUsuario: _firebase.usuario?.email,
+            googleSincronizando: _googleSincronizando,
+            onGoogleConectar: conectarGoogleDesdeAjustes,
+            onGoogleDesconectar: desconectarGoogleDesdeAjustes,
+            onGoogleSincronizar: sincronizarConGoogle,
+            onGoogleRestaurar: restaurarDesdeGoogle,
+            historicos: historicos,
+            onHistoricosChanged: () async {
+              setState(() {});
+              await guardarDatos();
+            },
+            modoOscuro: widget.modoOscuro,
+            onModoOscuroChanged: widget.onModoOscuroChanged,
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -6722,10 +6722,10 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Inicio'),
           NavigationDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month), label: 'Calendario'),
           NavigationDestination(icon: Icon(Icons.bar_chart_outlined), selectedIcon: Icon(Icons.bar_chart), label: 'Estadísticas'),
-          NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Ajustes'),
           NavigationDestination(icon: Icon(Icons.home_work_outlined), selectedIcon: Icon(Icons.home_work), label: 'Inmuebles'),
           NavigationDestination(icon: Icon(Icons.account_balance_outlined), selectedIcon: Icon(Icons.account_balance), label: 'Deudas'),
           NavigationDestination(icon: Icon(Icons.trending_up_outlined), selectedIcon: Icon(Icons.trending_up), label: 'Inversiones'),
+          NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Ajustes'),
         ],
       ),
     );
