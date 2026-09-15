@@ -2603,7 +2603,16 @@ class _AplicacionState extends State<Aplicacion> with WidgetsBindingObserver {
       mapa['ocultaAlAnadir'] = mapa['ocultaAlAnadir'] == true;
       return mapa;
     }));
-    final nuevosHistoricos = List<Map<String, dynamic>>.from((datos['historicos'] ?? []).map((item) => Map<String, dynamic>.from(item)));
+    // Los históricos incluidos en la app son datos base de PastApp. Si una
+    // copia remota antigua todavía no contiene históricos (lista vacía), no
+    // debemos borrarlos al sincronizar: conservamos los históricos locales
+    // y los subiremos de nuevo a Firebase.
+    final historicosRemotos = List<Map<String, dynamic>>.from(
+      (datos['historicos'] ?? []).map((item) => Map<String, dynamic>.from(item)),
+    );
+    final nuevosHistoricos = historicosRemotos.isEmpty && historicos.isNotEmpty
+        ? historicos.map((h) => Map<String, dynamic>.from(h)).toList()
+        : historicosRemotos;
     final nuevosPatrimonios = List<Map<String, dynamic>>.from((datos['patrimonios'] ?? []).map((item) {
       final mapa = Map<String, dynamic>.from(item);
       mapa['cuentas'] = List<Map<String, dynamic>>.from((mapa['cuentas'] ?? []).map((cuenta) => Map<String, dynamic>.from(cuenta)));
